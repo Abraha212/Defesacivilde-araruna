@@ -10,7 +10,6 @@ import {
   CheckCircle, 
   Sparkles,
   Zap,
-  Shield,
   Cloud,
   MapPin,
   Bell,
@@ -224,16 +223,6 @@ export default function SugestoesPage() {
                 avaliadas para possível implementação!
               </p>
             </div>
-          </div>
-
-          {/* Info sobre o desenvolvedor */}
-          <div className="bg-slate-900 rounded-2xl p-6 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Shield className="w-5 h-5 text-[#f59d4d]" />
-              <span className="text-white/60 text-sm">Sistema desenvolvido por</span>
-            </div>
-            <p className="text-xl font-bold text-white">Abraham Câmara</p>
-            <p className="text-[#f59d4d] text-sm mt-1">Defesa Civil de Araruna/PB</p>
           </div>
         </div>
       </div>
