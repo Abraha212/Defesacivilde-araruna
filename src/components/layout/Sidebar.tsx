@@ -9,7 +9,6 @@ import {
   FileText, 
   LogOut
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 
 const menuItems = [
   { name: 'Painel', href: '/dashboard', icon: LayoutDashboard },
@@ -21,11 +20,17 @@ const menuItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      router.push('/login')
+      router.refresh()
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+      // Forçar redirecionamento mesmo se der erro
+      router.push('/login')
+    }
   }
 
   return (

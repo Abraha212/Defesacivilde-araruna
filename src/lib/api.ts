@@ -1,8 +1,7 @@
 /**
- * Cliente da API Python para processamento de NetCDF
+ * Cliente da API para processamento de NetCDF
+ * Versão 5.0 - Funciona na Vercel com API Routes do Next.js
  */
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface ConversaoResponse {
   id: string
@@ -12,10 +11,6 @@ interface ConversaoResponse {
   variaveis_disponiveis: string[]
   dimensoes: Record<string, number>
   preview: Record<string, unknown>[]
-}
-
-interface GeminiResponse {
-  resposta: string
 }
 
 /**
@@ -54,7 +49,6 @@ async function getHeaders(): Promise<Record<string, string>> {
 
 /**
  * Analisar arquivo NetCDF e obter preview dos dados
- * Suporta arquivos grandes com upload em chunks
  */
 export async function analisarNetCDF(arquivo: File, onProgress?: (percent: number) => void): Promise<ConversaoResponse> {
   const headers = await getHeaders()
@@ -64,7 +58,7 @@ export async function analisarNetCDF(arquivo: File, onProgress?: (percent: numbe
   
   try {
     // Para arquivos grandes, usar XMLHttpRequest para ter progresso
-    if (arquivo.size > 100 * 1024 * 1024 && onProgress) { // > 100MB
+    if (arquivo.size > 10 * 1024 * 1024 && onProgress) { // > 10MB
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest()
         
@@ -90,8 +84,8 @@ export async function analisarNetCDF(arquivo: File, onProgress?: (percent: numbe
         xhr.onerror = () => reject(new Error('Erro de conexão'))
         xhr.ontimeout = () => reject(new Error('Timeout - arquivo muito grande'))
         
-        xhr.open('POST', `${API_URL}/api/netcdf/analisar`)
-        xhr.timeout = 0 // Sem timeout
+        xhr.open('POST', '/api/netcdf/analisar')
+        xhr.timeout = 60000 // 60 segundos
         if (headers.Authorization) {
           xhr.setRequestHeader('Authorization', headers.Authorization)
         }
@@ -99,7 +93,7 @@ export async function analisarNetCDF(arquivo: File, onProgress?: (percent: numbe
       })
     }
     
-    const response = await fetch(`${API_URL}/api/netcdf/analisar`, {
+    const response = await fetch('/api/netcdf/analisar', {
       method: 'POST',
       headers: headers.Authorization ? { 'Authorization': headers.Authorization } : {},
       body: formData,
@@ -113,19 +107,18 @@ export async function analisarNetCDF(arquivo: File, onProgress?: (percent: numbe
     return response.json()
   } catch (error) {
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error('Não foi possível conectar ao servidor. Verifique se o backend Python está rodando.')
+      throw new Error('Não foi possível conectar ao servidor.')
     }
     throw error
   }
 }
 
 /**
- * Converter arquivo NetCDF para CSV ou Excel
- * Suporta arquivos grandes com upload em chunks
+ * Converter arquivo NetCDF para CSV
  */
 export async function converterNetCDF(
   arquivo: File, 
-  formato: 'csv' | 'xlsx' = 'xlsx',
+  formato: 'csv' | 'xlsx' = 'csv',
   onProgress?: (percent: number) => void
 ): Promise<Blob> {
   const headers = await getHeaders()
@@ -134,7 +127,6 @@ export async function converterNetCDF(
   formData.append('arquivo', arquivo)
   
   try {
-    // Para arquivos grandes, usar XMLHttpRequest para ter progresso
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       
@@ -160,9 +152,9 @@ export async function converterNetCDF(
       xhr.onerror = () => reject(new Error('Erro de conexão'))
       xhr.ontimeout = () => reject(new Error('Timeout'))
       
-      xhr.open('POST', `${API_URL}/api/netcdf/converter?formato=${formato}`)
+      xhr.open('POST', `/api/netcdf/converter?formato=${formato}`)
       xhr.responseType = 'blob'
-      xhr.timeout = 0 // Sem timeout para arquivos grandes
+      xhr.timeout = 60000 // 60 segundos (limite da Vercel)
       if (headers.Authorization) {
         xhr.setRequestHeader('Authorization', headers.Authorization)
       }
@@ -170,85 +162,10 @@ export async function converterNetCDF(
     })
   } catch (error) {
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error('Não foi possível conectar ao servidor. Verifique se o backend Python está rodando.')
+      throw new Error('Não foi possível conectar ao servidor.')
     }
     throw error
   }
-}
-
-/**
- * Exportar dados editados para CSV ou Excel
- */
-export async function exportarDadosEditados(
-  dados: Record<string, unknown>[],
-  nomeArquivo: string = 'dados_editados',
-  formato: 'csv' | 'xlsx' = 'xlsx'
-): Promise<Blob> {
-  const headers = await getHeaders()
-  
-  const response = await fetch(
-    `${API_URL}/api/netcdf/exportar-editado?nome_arquivo=${encodeURIComponent(nomeArquivo)}&formato=${formato}`,
-    {
-      method: 'POST',
-      headers: {
-        ...(headers as Record<string, string>),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(dados),
-    }
-  )
-  
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || 'Erro ao exportar dados')
-  }
-  
-  return response.blob()
-}
-
-/**
- * Consultar Gemini AI para apoio técnico
- */
-export async function perguntarGemini(
-  pergunta: string, 
-  contexto?: string
-): Promise<GeminiResponse> {
-  const headers = await getHeaders()
-  
-  const response = await fetch(`${API_URL}/api/gemini/perguntar`, {
-    method: 'POST',
-    headers: {
-      ...(headers as Record<string, string>),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ pergunta, contexto }),
-  })
-  
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || 'Erro ao consultar Gemini')
-  }
-  
-  return response.json()
-}
-
-/**
- * Obter histórico de conversões do usuário
- */
-export async function obterHistoricoConversoes(): Promise<unknown[]> {
-  const headers = await getHeaders()
-  
-  const response = await fetch(`${API_URL}/api/conversoes/historico`, {
-    method: 'GET',
-    headers: headers,
-  })
-  
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || 'Erro ao buscar histórico')
-  }
-  
-  return response.json()
 }
 
 /**
@@ -270,7 +187,7 @@ export function downloadBlob(blob: Blob, nomeArquivo: string): void {
  */
 export async function verificarBackend(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_URL}/health`)
+    const response = await fetch('/api/netcdf/health')
     return response.ok
   } catch {
     return false

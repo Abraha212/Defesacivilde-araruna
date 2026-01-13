@@ -2,5 +2,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "regions": ["gru1"]
+  "regions": ["gru1"],
+  "functions": {
+    "src/app/api/netcdf/converter/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
 }

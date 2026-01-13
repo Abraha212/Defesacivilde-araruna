@@ -3,17 +3,24 @@
 Sistema institucional web para a Defesa Civil da Prefeitura Municipal de Araruna/PB.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
-![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Vercel](https://img.shields.io/badge/Vercel-Ready-black)
 ![Supabase](https://img.shields.io/badge/Supabase-Database-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+
+## 🚀 Deploy na Vercel
+
+Este sistema está **100% pronto para rodar na Vercel** sem necessidade de servidor Python separado!
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Abraha212/Defesacivilde-araruna)
 
 ## 📋 Funcionalidades
 
 ### 🔄 Conversor NetCDF
-- Converte arquivos meteorológicos NetCDF (.nc) para CSV ou Excel
-- Suporte para arquivos grandes (2GB+)
-- Processamento em chunks para otimização de memória
+- Converte arquivos meteorológicos NetCDF (.nc) para CSV
+- **Funciona 100% na Vercel** (API Routes do Next.js)
+- Processamento via biblioteca `netcdfjs` (JavaScript puro)
 - Indicadores de progresso em tempo real
+- Limite: 50MB por arquivo (serverless)
 
 ### 📅 Agenda
 - Calendário interativo
@@ -25,28 +32,23 @@ Sistema institucional web para a Defesa Civil da Prefeitura Municipal de Araruna
 - Status: Pendente/Concluído
 - Filtros por status
 
-## 🚀 Tecnologias
+## 🛠️ Tecnologias
 
-**Frontend:**
+**Frontend + Backend (100% JavaScript):**
 - Next.js 16 (App Router)
 - React 19
 - Tailwind CSS 4
 - Lucide Icons
-
-**Backend:**
-- Python FastAPI
-- xarray + netCDF4 (processamento)
-- pandas (manipulação de dados)
+- **netcdfjs** (processamento NetCDF em JS)
 
 **Banco de Dados:**
 - Supabase (PostgreSQL)
 - Row Level Security (RLS)
 
-## 📦 Instalação
+## 📦 Instalação Local
 
 ### Pré-requisitos
 - Node.js 18+
-- Python 3.10+
 - Conta no Supabase
 
 ### 1. Clone o repositório
@@ -55,7 +57,7 @@ git clone https://github.com/Abraha212/Defesacivilde-araruna.git
 cd Defesacivilde-araruna
 ```
 
-### 2. Instale as dependências do Frontend
+### 2. Instale as dependências
 ```bash
 npm install
 ```
@@ -65,18 +67,9 @@ Crie o arquivo `.env.local`:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=sua_url_supabase
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anon
-NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-### 4. Configure o Backend Python
-```bash
-cd backend
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-pip install -r requirements.txt
-```
-
-### 5. Execute o SQL no Supabase
+### 4. Execute o SQL no Supabase
 Execute o conteúdo de `supabase/schema.sql` no SQL Editor do Supabase.
 
 ## ▶️ Executando
@@ -87,20 +80,23 @@ INICIAR.bat
 ```
 
 ### Opção 2: Manual
-
-**Terminal 1 - Backend:**
-```bash
-cd backend
-.\venv\Scripts\activate
-python main.py
-```
-
-**Terminal 2 - Frontend:**
 ```bash
 npm run dev
 ```
 
 Acesse: http://localhost:3000
+
+## 🌐 Deploy na Vercel
+
+1. Faça push do código para o GitHub
+2. Acesse [vercel.com](https://vercel.com)
+3. Importe o repositório
+4. Configure as variáveis de ambiente:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+5. Deploy!
+
+O conversor NetCDF funciona automaticamente nas API Routes da Vercel.
 
 ## 📁 Estrutura do Projeto
 
@@ -108,19 +104,22 @@ Acesse: http://localhost:3000
 defesa-civil-araruna/
 ├── src/
 │   ├── app/
+│   │   ├── api/
+│   │   │   └── netcdf/         # API Routes (JavaScript)
+│   │   │       ├── converter/  # POST - Converte NetCDF para CSV
+│   │   │       └── health/     # GET - Status do serviço
 │   │   ├── dashboard/
-│   │   │   ├── conversor/    # Conversor NetCDF
-│   │   │   ├── agenda/       # Agenda
-│   │   │   └── memorandos/   # Memorandos
-│   │   ├── login/            # Autenticação
-│   │   └── auth/             # OAuth callback
-│   ├── components/           # Componentes React
-│   └── lib/                  # Utilitários
-├── backend/
-│   ├── main.py              # API FastAPI
-│   └── requirements.txt     # Dependências Python
-├── public/images/           # Logo e imagens
-└── supabase/schema.sql      # Schema do banco
+│   │   │   ├── conversor/      # UI do Conversor NetCDF
+│   │   │   ├── agenda/         # Agenda
+│   │   │   └── memorandos/     # Memorandos
+│   │   ├── login/              # Autenticação
+│   │   └── auth/               # OAuth callback
+│   ├── components/             # Componentes React
+│   ├── lib/                    # Utilitários
+│   └── types/                  # Tipos TypeScript
+├── public/images/              # Logo e imagens
+├── supabase/schema.sql         # Schema do banco
+└── vercel.json                 # Configuração Vercel
 ```
 
 ## 🔒 Segurança
@@ -128,6 +127,16 @@ defesa-civil-araruna/
 - Autenticação via Supabase Auth (email/senha e Google OAuth)
 - Row Level Security (RLS) no PostgreSQL
 - Cada usuário acessa apenas seus próprios dados
+
+## 📊 Limites (Vercel Serverless)
+
+| Recurso | Limite |
+|---------|--------|
+| Tamanho do arquivo | 50MB |
+| Tempo de processamento | 60s |
+| Memória | 1024MB |
+
+Para arquivos maiores, use o backend Python local (pasta `backend/`).
 
 ## 👨‍💻 Autor
 

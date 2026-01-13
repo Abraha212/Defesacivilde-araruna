@@ -2,20 +2,30 @@
 
 import { User as UserIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
+
+interface UserData {
+  name: string
+  role: string
+}
 
 export function Header() {
-  const [user, setUser] = useState<SupabaseUser | null>(null)
-  const supabase = createClient()
+  const [user, setUser] = useState<UserData | null>(null)
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/check')
+        const data = await response.json()
+        
+        if (data.authenticated && data.user) {
+          setUser(data.user)
+        }
+      } catch (error) {
+        console.error('Erro ao verificar autenticação:', error)
+      }
     }
-    getUser()
-  }, [supabase.auth])
+    checkAuth()
+  }, [])
 
   const formatDate = () => {
     return new Intl.DateTimeFormat('pt-BR', {
@@ -35,21 +45,13 @@ export function Header() {
       <div className="flex items-center gap-4">
         <div className="text-right">
           <p className="text-sm font-semibold text-[#1e3a5f]">
-            {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
+            {user?.name || 'Defesa Civil'}
           </p>
           <p className="text-xs text-slate-400">Acesso Administrativo</p>
         </div>
         
         <div className="w-10 h-10 bg-[#1e3a5f] rounded-xl flex items-center justify-center">
-          {user?.user_metadata?.avatar_url ? (
-            <img
-              src={user.user_metadata.avatar_url}
-              alt="Avatar"
-              className="w-full h-full rounded-xl object-cover"
-            />
-          ) : (
-            <UserIcon className="w-5 h-5 text-white" />
-          )}
+          <UserIcon className="w-5 h-5 text-white" />
         </div>
       </div>
     </header>

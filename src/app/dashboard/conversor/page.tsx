@@ -11,12 +11,11 @@ import {
   AlertCircle,
   CheckCircle2,
   X,
-  Zap,
   Clock,
-  HardDrive
+  HardDrive,
+  Monitor,
+  ExternalLink
 } from 'lucide-react'
-
-const API_URL = 'http://localhost:8000'
 
 export default function ConversorPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -30,13 +29,14 @@ export default function ConversorPage() {
   const [statusMsg, setStatusMsg] = useState('')
   const [elapsedTime, setElapsedTime] = useState(0)
   const [startTime, setStartTime] = useState<number | null>(null)
+  const [showDesktopModal, setShowDesktopModal] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const checkBackend = () => {
-      fetch(`${API_URL}/health`, { mode: 'cors' })
+      fetch('/api/netcdf/health', { mode: 'cors' })
         .then(r => r.ok ? setBackendOnline(true) : setBackendOnline(false))
         .catch(() => setBackendOnline(false))
     }
@@ -67,9 +67,8 @@ export default function ConversorPage() {
   }
 
   const estimateTime = (fileSize: number) => {
-    // Estimativa baseada no tamanho (aproximadamente 100MB/minuto)
     const sizeInMB = fileSize / (1024 * 1024)
-    const minutes = Math.ceil(sizeInMB / 100)
+    const minutes = Math.ceil(sizeInMB / 50)
     if (minutes < 1) return 'menos de 1 minuto'
     if (minutes === 1) return '~1 minuto'
     return `~${minutes} minutos`
@@ -80,6 +79,12 @@ export default function ConversorPage() {
     if (file) {
       if (!file.name.endsWith('.nc')) {
         setError('Selecione um arquivo NetCDF (.nc)')
+        return
+      }
+      // Limite de 50MB para a Vercel (serverless)
+      if (file.size > 50 * 1024 * 1024) {
+        setError('Arquivo muito grande para versão online. Use o Software Desktop para arquivos maiores que 50MB.')
+        setShowDesktopModal(true)
         return
       }
       setSelectedFile(file)
@@ -95,6 +100,11 @@ export default function ConversorPage() {
     if (file) {
       if (!file.name.endsWith('.nc')) {
         setError('Selecione um arquivo NetCDF (.nc)')
+        return
+      }
+      if (file.size > 50 * 1024 * 1024) {
+        setError('Arquivo muito grande para versão online. Use o Software Desktop.')
+        setShowDesktopModal(true)
         return
       }
       setSelectedFile(file)
@@ -146,7 +156,7 @@ export default function ConversorPage() {
           
           if (pct >= 100) {
             setPhase('processing')
-            setStatusMsg('Arquivo recebido pelo servidor')
+            setStatusMsg('Processando arquivo no servidor...')
           }
         }
       }
@@ -185,7 +195,9 @@ export default function ConversorPage() {
             const text = new TextDecoder().decode(xhr.response)
             const json = JSON.parse(text)
             errorMsg = json.detail || errorMsg
-          } catch {}
+          } catch {
+            // Usar mensagem padrão
+          }
           setError(errorMsg)
           setPhase('error')
           setLoading(false)
@@ -194,14 +206,14 @@ export default function ConversorPage() {
 
       xhr.onerror = () => {
         if (timerRef.current) clearInterval(timerRef.current)
-        setError('Erro de conexão. Verifique se o backend está rodando.')
+        setError('Erro de conexão. Tente novamente.')
         setPhase('error')
         setLoading(false)
       }
 
       xhr.ontimeout = () => {
         if (timerRef.current) clearInterval(timerRef.current)
-        setError('Timeout: a requisição demorou demais.')
+        setError('Timeout: a requisição demorou demais. Tente com arquivo menor ou use o Software Desktop.')
         setPhase('error')
         setLoading(false)
       }
@@ -213,14 +225,15 @@ export default function ConversorPage() {
         setStatusMsg('')
       }
 
-      xhr.open('POST', `${API_URL}/api/netcdf/converter?formato=${formato}`)
+      xhr.open('POST', `/api/netcdf/converter?formato=${formato}`)
       xhr.responseType = 'arraybuffer'
-      xhr.timeout = 0
+      xhr.timeout = 60000
       xhr.send(formData)
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (timerRef.current) clearInterval(timerRef.current)
-      setError(err.message || 'Erro desconhecido')
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido'
+      setError(errorMessage)
       setPhase('error')
       setLoading(false)
     }
@@ -235,10 +248,10 @@ export default function ConversorPage() {
 
   const getProcessingSteps = () => {
     const steps = [
-      { label: 'Lendo arquivo NetCDF', done: elapsedTime > 5 },
-      { label: 'Extraindo variáveis', done: elapsedTime > 15 },
-      { label: 'Convertendo dados', done: elapsedTime > 30 },
-      { label: 'Gerando arquivo de saída', done: false },
+      { label: 'Lendo arquivo NetCDF', done: elapsedTime > 3 },
+      { label: 'Extraindo variáveis', done: elapsedTime > 8 },
+      { label: 'Convertendo dados', done: elapsedTime > 15 },
+      { label: 'Gerando arquivo CSV', done: false },
     ]
     return steps
   }
@@ -264,7 +277,7 @@ export default function ConversorPage() {
             <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e3a5f', margin: 0 }}>
               Conversor NetCDF
             </h1>
-            <p style={{ color: '#64748b', margin: 0 }}>Converta arquivos .nc para CSV ou Excel</p>
+            <p style={{ color: '#64748b', margin: 0 }}>Converta arquivos .nc para CSV</p>
           </div>
         </div>
         
@@ -289,6 +302,61 @@ export default function ConversorPage() {
         </div>
       </div>
 
+      {/* Banner do Software Desktop */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
+        borderRadius: '16px',
+        padding: '24px',
+        marginBottom: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '20px',
+        border: '1px solid #334155'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+            borderRadius: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Monitor style={{ width: '28px', height: '28px', color: 'white' }} />
+          </div>
+          <div>
+            <h3 style={{ color: 'white', fontWeight: 'bold', margin: 0, fontSize: '16px' }}>
+              Arquivos grandes? Baixe o Software Desktop!
+            </h3>
+            <p style={{ color: '#94a3b8', margin: '4px 0 0', fontSize: '14px' }}>
+              Processe arquivos de 3GB, 4GB ou mais no seu computador
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowDesktopModal(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '12px 24px',
+            background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '10px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Download style={{ width: '18px', height: '18px' }} />
+          Baixar Software
+        </button>
+      </div>
+
       {backendOnline === false && (
         <div style={{
           backgroundColor: '#fef2f2',
@@ -302,11 +370,9 @@ export default function ConversorPage() {
         }}>
           <AlertCircle style={{ width: '20px', height: '20px', color: '#ef4444', flexShrink: 0 }} />
           <div>
-            <p style={{ fontWeight: '600', color: '#991b1b', margin: 0 }}>Backend não está rodando</p>
+            <p style={{ fontWeight: '600', color: '#991b1b', margin: 0 }}>Serviço temporariamente indisponível</p>
             <p style={{ color: '#dc2626', fontSize: '14px', margin: '4px 0 0' }}>
-              Execute: <code style={{ backgroundColor: '#fee2e2', padding: '2px 8px', borderRadius: '4px' }}>
-                cd backend && python main.py
-              </code>
+              Aguarde alguns segundos e tente novamente, ou baixe o Software Desktop.
             </p>
           </div>
         </div>
@@ -363,7 +429,6 @@ export default function ConversorPage() {
                 {formatSize(selectedFile.size)}
               </p>
               
-              {/* Estimativa de tempo */}
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -416,6 +481,7 @@ export default function ConversorPage() {
               </p>
               <p style={{ color: '#94a3b8', margin: '8px 0' }}>ou clique para selecionar</p>
               <p style={{ fontSize: '12px', color: '#94a3b8' }}>Formato aceito: .nc (NetCDF)</p>
+              <p style={{ fontSize: '11px', color: '#e87722', marginTop: '8px' }}>Limite online: 50MB</p>
             </div>
           )}
         </div>
@@ -423,7 +489,7 @@ export default function ConversorPage() {
         {/* Right Panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* Processing Status - MELHORADO */}
+          {/* Processing Status */}
           {loading && (
             <div style={{
               backgroundColor: '#1e3a5f',
@@ -431,7 +497,6 @@ export default function ConversorPage() {
               padding: '24px',
               color: 'white'
             }}>
-              {/* Timer sempre visível */}
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -500,7 +565,6 @@ export default function ConversorPage() {
                     <span style={{ fontWeight: '600' }}>Processando arquivo</span>
                   </div>
 
-                  {/* Etapas do processamento */}
                   <div style={{ marginBottom: '16px' }}>
                     {getProcessingSteps().map((step, i) => (
                       <div key={i} style={{ 
@@ -539,8 +603,7 @@ export default function ConversorPage() {
                     ))}
                   </div>
 
-                  {/* Aviso para arquivos grandes */}
-                  {selectedFile && selectedFile.size > 500 * 1024 * 1024 && (
+                  {selectedFile && selectedFile.size > 20 * 1024 * 1024 && (
                     <div style={{
                       backgroundColor: 'rgba(245, 157, 77, 0.2)',
                       borderRadius: '8px',
@@ -554,8 +617,7 @@ export default function ConversorPage() {
                       <div style={{ fontSize: '13px' }}>
                         <p style={{ margin: 0, color: '#f59d4d', fontWeight: '600' }}>Arquivo grande detectado</p>
                         <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.7)' }}>
-                          Arquivos de {formatSize(selectedFile.size)} podem demorar vários minutos. 
-                          Não feche esta página.
+                          O processamento pode demorar. Não feche esta página.
                         </p>
                       </div>
                     </div>
@@ -647,10 +709,11 @@ export default function ConversorPage() {
                 Formato de Saída
               </h3>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+              <div style={{ marginBottom: '24px' }}>
                 <button
                   onClick={() => setFormato('csv')}
                   style={{
+                    width: '100%',
                     padding: '16px',
                     borderRadius: '12px',
                     border: formato === 'csv' ? '2px solid #e87722' : '2px solid #e2e8f0',
@@ -661,23 +724,7 @@ export default function ConversorPage() {
                 >
                   <span style={{ fontSize: '24px' }}>📊</span>
                   <p style={{ fontWeight: 'bold', color: '#1e3a5f', margin: '8px 0 0' }}>CSV</p>
-                  <p style={{ fontSize: '12px', color: '#22c55e', margin: '4px 0 0', fontWeight: '500' }}>Recomendado</p>
-                </button>
-
-                <button
-                  onClick={() => setFormato('xlsx')}
-                  style={{
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: formato === 'xlsx' ? '2px solid #e87722' : '2px solid #e2e8f0',
-                    backgroundColor: formato === 'xlsx' ? '#fff7ed' : 'white',
-                    cursor: 'pointer',
-                    textAlign: 'center'
-                  }}
-                >
-                  <span style={{ fontSize: '24px' }}>📗</span>
-                  <p style={{ fontWeight: 'bold', color: '#1e3a5f', margin: '8px 0 0' }}>Excel</p>
-                  <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0' }}>Limite 1M linhas</p>
+                  <p style={{ fontSize: '12px', color: '#22c55e', margin: '4px 0 0', fontWeight: '500' }}>Formato disponível</p>
                 </button>
               </div>
 
@@ -718,7 +765,6 @@ export default function ConversorPage() {
               <ol style={{ margin: 0, paddingLeft: '0', listStyle: 'none' }}>
                 {[
                   'Arraste ou selecione um arquivo .nc',
-                  'Escolha CSV (recomendado) ou Excel',
                   'Clique em converter e aguarde',
                   'Download inicia automaticamente'
                 ].map((text, i) => (
@@ -749,18 +795,173 @@ export default function ConversorPage() {
               }}>
                 <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Clock style={{ width: '14px', height: '14px' }} />
-                  Tempo estimado por tamanho:
+                  Informações:
                 </p>
                 <ul style={{ margin: 0, paddingLeft: '22px' }}>
-                  <li>100 MB → ~1 minuto</li>
-                  <li>500 MB → ~5 minutos</li>
-                  <li>2 GB → ~20 minutos</li>
+                  <li>Limite online: 50MB por arquivo</li>
+                  <li>Para arquivos maiores: use o Software Desktop</li>
                 </ul>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modal do Software Desktop */}
+      {showDesktopModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }} onClick={() => setShowDesktopModal(false)}>
+          <div 
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '20px',
+              padding: '32px',
+              maxWidth: '500px',
+              width: '100%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <div style={{
+                width: '80px',
+                height: '80px',
+                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px'
+              }}>
+                <Monitor style={{ width: '40px', height: '40px', color: 'white' }} />
+              </div>
+              <h2 style={{ color: '#1e3a5f', margin: 0, fontSize: '24px' }}>Software Desktop</h2>
+              <p style={{ color: '#64748b', margin: '8px 0 0' }}>Para arquivos grandes (3GB, 4GB ou mais)</p>
+            </div>
+
+            <div style={{
+              backgroundColor: '#f8fafc',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '24px'
+            }}>
+              <h4 style={{ color: '#1e3a5f', margin: '0 0 12px', fontSize: '14px' }}>✅ Vantagens:</h4>
+              <ul style={{ margin: 0, paddingLeft: '20px', color: '#475569', fontSize: '14px' }}>
+                <li style={{ marginBottom: '8px' }}>Processa arquivos de qualquer tamanho</li>
+                <li style={{ marginBottom: '8px' }}>Sem limite de tempo</li>
+                <li style={{ marginBottom: '8px' }}>Funciona offline</li>
+                <li>Otimizado para memória (chunks)</li>
+              </ul>
+            </div>
+
+            <div style={{
+              backgroundColor: '#fef3c7',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '24px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px'
+            }}>
+              <AlertCircle style={{ width: '20px', height: '20px', color: '#f59e0b', flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '13px', color: '#92400e' }}>
+                <strong>Requisitos:</strong>
+                <ul style={{ margin: '8px 0 0', paddingLeft: '16px' }}>
+                  <li>Windows 10/11</li>
+                  <li>Python 3.10+ instalado</li>
+                  <li>Bibliotecas: xarray, netcdf4, pandas</li>
+                </ul>
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: '#1e293b',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '24px'
+            }}>
+              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 8px' }}>Instale as dependências:</p>
+              <code style={{ 
+                color: '#22c55e', 
+                fontSize: '13px',
+                display: 'block',
+                padding: '8px',
+                backgroundColor: '#0f172a',
+                borderRadius: '6px'
+              }}>
+                pip install xarray netcdf4 pandas numpy
+              </code>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <a
+                href="/downloads/conversor_desktop.py"
+                download="conversor_desktop.py"
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '14px',
+                  background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '10px',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }}
+              >
+                <Download style={{ width: '18px', height: '18px' }} />
+                Baixar Script Python
+              </a>
+              <button
+                onClick={() => setShowDesktopModal(false)}
+                style={{
+                  padding: '14px 24px',
+                  backgroundColor: '#f1f5f9',
+                  color: '#475569',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Fechar
+              </button>
+            </div>
+
+            <p style={{ 
+              textAlign: 'center', 
+              fontSize: '12px', 
+              color: '#94a3b8', 
+              margin: '16px 0 0' 
+            }}>
+              Execute com: <code style={{ backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>python conversor_desktop.py</code>
+            </p>
+
+            <p style={{ 
+              textAlign: 'center', 
+              fontSize: '11px', 
+              color: '#64748b', 
+              margin: '12px 0 0',
+              paddingTop: '12px',
+              borderTop: '1px solid #e2e8f0'
+            }}>
+              Desenvolvido por <span style={{ color: '#e87722', fontWeight: '600' }}>Abraham Câmara</span>
+            </p>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes spin {

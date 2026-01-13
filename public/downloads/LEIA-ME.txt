@@ -1,0 +1,77 @@
+╔══════════════════════════════════════════════════════════════════╗
+║     CONVERSOR NETCDF - DEFESA CIVIL ARARUNA                      ║
+║     Software Desktop para Windows                                 ║
+║     Prefeitura Municipal de Araruna/PB                           ║
+║                                                                  ║
+║     Desenvolvido por Abraham Câmara                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+DESCRIÇÃO:
+Este software converte arquivos NetCDF (.nc) para CSV.
+Ideal para processar arquivos muito grandes (3GB, 4GB ou mais).
+
+══════════════════════════════════════════════════════════════════
+
+REQUISITOS:
+
+1. Windows 10 ou 11
+2. Python 3.10 ou superior
+   - Baixe em: https://www.python.org/downloads/
+
+3. Bibliotecas Python necessárias:
+   - xarray
+   - netcdf4
+   - pandas
+   - numpy
+
+══════════════════════════════════════════════════════════════════
+
+INSTALAÇÃO:
+
+1. Abra o Prompt de Comando (cmd) ou PowerShell
+
+2. Instale as bibliotecas necessárias:
+   
+   pip install xarray netcdf4 pandas numpy
+
+3. Aguarde a instalação completar
+
+══════════════════════════════════════════════════════════════════
+
+COMO USAR:
+
+Opção 1 - Interface Gráfica:
+   - Dê duplo clique no arquivo "conversor_desktop.py"
+   - Ou execute: python conversor_desktop.py
+   - Selecione o arquivo .nc de entrada
+   - Escolha onde salvar o CSV
+   - Clique em "CONVERTER"
+
+Opção 2 - Linha de Comando:
+   - Abra o terminal na pasta do script
+   - Execute: python conversor_desktop.py
+
+══════════════════════════════════════════════════════════════════
+
+SOLUÇÃO DE PROBLEMAS:
+
+Erro: "python não é reconhecido"
+   → Reinstale o Python e marque "Add to PATH"
+
+Erro: "ModuleNotFoundError: No module named 'xarray'"
+   → Execute: pip install xarray netcdf4 pandas numpy
+
+Erro: "MemoryError"
+   → O software já usa processamento em chunks
+   → Feche outros programas para liberar memória
+   → Aumente a memória virtual do Windows
+
+══════════════════════════════════════════════════════════════════
+
+SUPORTE:
+
+Sistema desenvolvido para a Defesa Civil de Araruna/PB
+
+Desenvolvido por Abraham Câmara
+
+══════════════════════════════════════════════════════════════════
