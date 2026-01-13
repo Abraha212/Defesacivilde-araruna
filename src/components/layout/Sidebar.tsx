@@ -7,7 +7,8 @@ import {
   FileSpreadsheet, 
   Calendar, 
   FileText, 
-  LogOut
+  LogOut,
+  Lightbulb
 } from 'lucide-react'
 
 const menuItems = [
@@ -15,6 +16,7 @@ const menuItems = [
   { name: 'Conversor NetCDF', href: '/dashboard/conversor', icon: FileSpreadsheet },
   { name: 'Agenda', href: '/dashboard/agenda', icon: Calendar },
   { name: 'Memorandos', href: '/dashboard/memorandos', icon: FileText },
+  { name: 'Sugestões', href: '/dashboard/sugestoes', icon: Lightbulb },
 ]
 
 export function Sidebar() {
@@ -28,7 +30,6 @@ export function Sidebar() {
       router.refresh()
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
-      // Forçar redirecionamento mesmo se der erro
       router.push('/login')
     }
   }
@@ -87,6 +88,16 @@ export function Sidebar() {
           <LogOut className="w-5 h-5" />
           <span>Sair do Sistema</span>
         </button>
+      </div>
+
+      {/* Rodapé com crédito */}
+      <div className="px-4 py-3 border-t border-white/10 text-center">
+        <p className="text-[10px] text-white/40">
+          Desenvolvido por
+        </p>
+        <p className="text-xs font-semibold text-[#f59d4d]">
+          Abraham Câmara
+        </p>
       </div>
     </aside>
   )

@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Desabilitar indicador de desenvolvimento
+  devIndicators: false,
 };
 
 export default nextConfig;

@@ -11,7 +11,8 @@ import {
   Calendar, 
   FileText, 
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  Lightbulb
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -21,6 +22,7 @@ const menuItems = [
   { name: 'Conversor NetCDF', href: '/dashboard/conversor', icon: FileSpreadsheet },
   { name: 'Agenda', href: '/dashboard/agenda', icon: Calendar },
   { name: 'Memorandos', href: '/dashboard/memorandos', icon: FileText },
+  { name: 'Sugestões', href: '/dashboard/sugestoes', icon: Lightbulb },
 ]
 
 export default function DashboardLayout({
@@ -42,8 +44,14 @@ export default function DashboardLayout({
   }, [supabase.auth])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      router.push('/login')
+      router.refresh()
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+      router.push('/login')
+    }
   }
 
   const formatDate = () => {
@@ -148,6 +156,20 @@ export default function DashboardLayout({
             <span>Sair do Sistema</span>
           </button>
         </div>
+
+        {/* Rodapé com crédito */}
+        <div style={{ 
+          padding: '12px 16px', 
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          textAlign: 'center'
+        }}>
+          <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+            Desenvolvido por
+          </p>
+          <p style={{ fontSize: '12px', fontWeight: '600', color: '#f59d4d', margin: '2px 0 0 0' }}>
+            Abraham Câmara
+          </p>
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -172,7 +194,7 @@ export default function DashboardLayout({
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ textAlign: 'right' }}>
               <p style={{ fontSize: '14px', fontWeight: '600', color: '#1e3a5f', margin: 0 }}>
-                {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
+                Defesa Civil
               </p>
               <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Acesso Administrativo</p>
             </div>
@@ -185,15 +207,7 @@ export default function DashboardLayout({
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              {user?.user_metadata?.avatar_url ? (
-                <img
-                  src={user.user_metadata.avatar_url}
-                  alt="Avatar"
-                  style={{ width: '100%', height: '100%', borderRadius: '12px', objectFit: 'cover' }}
-                />
-              ) : (
-                <UserIcon style={{ width: '20px', height: '20px', color: 'white' }} />
-              )}
+              <UserIcon style={{ width: '20px', height: '20px', color: 'white' }} />
             </div>
           </div>
         </header>
