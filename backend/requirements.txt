@@ -1,0 +1,29 @@
+# Backend Python - Defesa Civil Araruna
+# Instalar com: pip install -r requirements.txt
+
+# Framework Web
+fastapi>=0.128.0
+uvicorn>=0.40.0
+python-multipart>=0.0.21
+
+# Processamento NetCDF
+xarray>=2025.12.0
+netCDF4>=1.7.4
+pandas>=2.3.0
+numpy>=2.4.0
+
+# Exportação Excel
+openpyxl>=3.1.5
+xlsxwriter>=3.2.9
+
+# Manipulação de imagens (logo no Excel)
+Pillow>=12.0.0
+
+# Google Gemini AI (novo SDK)
+google-genai>=1.57.0
+
+# Supabase
+supabase>=2.27.0
+
+# Utilitários
+python-dotenv>=1.2.0
