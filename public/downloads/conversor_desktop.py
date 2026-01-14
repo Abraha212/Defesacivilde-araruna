@@ -415,20 +415,27 @@ class ConversorNetCDF:
         return card
     
     def selecionar_arquivos(self):
-        arquivos = filedialog.askopenfilenames(
-            title="Selecione os arquivos NetCDF",
-            filetypes=[("Arquivos NetCDF", "*.nc"), ("Todos os arquivos", "*.*")]
+        # Forçar a abertura do seletor de múltiplos arquivos
+        res = filedialog.askopenfilenames(
+            title="Selecione os arquivos NetCDF (Dica: use Ctrl ou Shift para vários)",
+            filetypes=[("Arquivos NetCDF", "*.nc"), ("Todos os arquivos", "*.*")],
+            parent=self.root
         )
-        if arquivos:
-            self.arquivos_entrada = list(arquivos)
+        
+        if res:
+            # Converter para lista caso venha como tupla ou string formatada do tcl
+            if isinstance(res, str):
+                arquivos = self.root.tk.splitlist(res)
+            else:
+                arquivos = list(res)
+                
+            self.arquivos_entrada = arquivos
             num = len(arquivos)
             if num == 1:
                 self.texto_entrada.set(Path(arquivos[0]).name)
-                # Sugerir pasta de saída
                 self.diretorio_saida.set(str(Path(arquivos[0]).parent))
             else:
                 self.texto_entrada.set(f"{num} arquivos selecionados")
-                # Sugerir pasta de saída do primeiro
                 self.diretorio_saida.set(str(Path(arquivos[0]).parent))
             
             # Calcular tamanho total
@@ -436,10 +443,10 @@ class ConversorNetCDF:
             tamanho_gb = tamanho_total / (1024**3)
             
             if tamanho_gb >= 1:
-                self.status.set(f"✅ {num} arquivos: {tamanho_gb:.2f} GB no total")
+                self.status.set(f"✅ {num} arquivos selecionados ({tamanho_gb:.2f} GB)")
             else:
                 tamanho_mb = tamanho_total / (1024**2)
-                self.status.set(f"✅ {num} arquivos: {tamanho_mb:.0f} MB no total")
+                self.status.set(f"✅ {num} arquivos selecionados ({tamanho_mb:.0f} MB)")
     
     def selecionar_diretorio(self):
         diretorio = filedialog.askdirectory(title="Selecione a pasta de destino")
