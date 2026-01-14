@@ -14,7 +14,8 @@ import {
   User as UserIcon,
   Lightbulb,
   Menu,
-  X
+  X,
+  Database
 } from 'lucide-react'
 
 const menuItems = [
@@ -23,6 +24,7 @@ const menuItems = [
   { name: 'Agenda', href: '/dashboard/agenda', icon: Calendar },
   { name: 'Memorandos', href: '/dashboard/memorandos', icon: FileText },
   { name: 'Sugestões', href: '/dashboard/sugestoes', icon: Lightbulb },
+  { name: 'Banco de Dados', href: '/setup', icon: Database },
 ]
 
 export default function DashboardLayout({

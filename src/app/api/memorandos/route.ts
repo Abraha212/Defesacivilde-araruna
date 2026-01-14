@@ -14,21 +14,19 @@ export async function GET() {
       .order('numero', { ascending: true })
 
     if (error) {
-      // Se a tabela não existir, retornar array vazio
-      if (error.code === '42P01') {
-        return NextResponse.json({ data: [], needsSetup: true })
-      }
-      throw error
+      console.error('Erro ao buscar memorandos:', error)
+      // Qualquer erro indica problema com a tabela
+      return NextResponse.json({ data: [], needsSetup: true, error: error.message })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: data || [] })
   } catch (error) {
     console.error('Erro ao buscar memorandos:', error)
-    return NextResponse.json({ error: 'Erro ao buscar memorandos' }, { status: 500 })
+    return NextResponse.json({ data: [], needsSetup: true, error: 'Erro de conexão' })
   }
 }
 
-// POST - Criar/Atualizar memorando
+// POST - Criar/Atualizar um memorando
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -36,38 +34,31 @@ export async function POST(request: Request) {
     
     const { numero, status } = body
 
-    // Verificar se já existe
-    const { data: existing } = await supabase
+    if (!numero || !status) {
+      return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 })
+    }
+
+    // Usar upsert para criar ou atualizar
+    const { error } = await supabase
       .from('memorandos')
-      .select('id')
-      .eq('numero', numero)
-      .single()
+      .upsert(
+        { numero, status, updated_at: new Date().toISOString() },
+        { onConflict: 'numero' }
+      )
 
-    if (existing) {
-      // Atualizar
-      const { error } = await supabase
-        .from('memorandos')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('numero', numero)
-
-      if (error) throw error
-    } else {
-      // Criar
-      const { error } = await supabase
-        .from('memorandos')
-        .insert({ numero, status })
-
-      if (error) throw error
+    if (error) {
+      console.error('Erro ao salvar memorando:', error)
+      return NextResponse.json({ error: error.message, needsSetup: true }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Erro ao salvar memorando:', error)
-    return NextResponse.json({ error: 'Erro ao salvar memorando' }, { status: 500 })
+    return NextResponse.json({ error: 'Erro ao salvar' }, { status: 500 })
   }
 }
 
-// PUT - Atualizar todos os memorandos (reset)
+// PUT - Resetar todos os memorandos
 export async function PUT(request: Request) {
   try {
     const supabase = await createClient()
@@ -75,29 +66,29 @@ export async function PUT(request: Request) {
     
     const { memorandos } = body
 
-    // Inserir/atualizar todos
-    for (const memo of memorandos) {
-      const { data: existing } = await supabase
-        .from('memorandos')
-        .select('id')
-        .eq('numero', memo.numero)
-        .single()
+    if (!memorandos || !Array.isArray(memorandos)) {
+      return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
+    }
 
-      if (existing) {
-        await supabase
-          .from('memorandos')
-          .update({ status: memo.status, updated_at: new Date().toISOString() })
-          .eq('numero', memo.numero)
-      } else {
-        await supabase
-          .from('memorandos')
-          .insert({ numero: memo.numero, status: memo.status })
-      }
+    // Atualizar todos para pendente usando upsert
+    const toUpsert = memorandos.map(m => ({
+      numero: m.numero,
+      status: m.status,
+      updated_at: new Date().toISOString()
+    }))
+
+    const { error } = await supabase
+      .from('memorandos')
+      .upsert(toUpsert, { onConflict: 'numero' })
+
+    if (error) {
+      console.error('Erro ao resetar memorandos:', error)
+      return NextResponse.json({ error: error.message, needsSetup: true }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Erro ao resetar memorandos:', error)
-    return NextResponse.json({ error: 'Erro ao resetar memorandos' }, { status: 500 })
+    return NextResponse.json({ error: 'Erro ao resetar' }, { status: 500 })
   }
 }

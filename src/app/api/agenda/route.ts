@@ -15,16 +15,14 @@ export async function GET() {
       .order('hora_inicio', { ascending: true })
 
     if (error) {
-      if (error.code === '42P01') {
-        return NextResponse.json({ data: [], needsSetup: true })
-      }
-      throw error
+      console.error('Erro ao buscar agenda:', error)
+      return NextResponse.json({ data: [], needsSetup: true, error: error.message })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: data || [] })
   } catch (error) {
     console.error('Erro ao buscar agenda:', error)
-    return NextResponse.json({ error: 'Erro ao buscar agenda' }, { status: 500 })
+    return NextResponse.json({ data: [], needsSetup: true, error: 'Erro de conexão' })
   }
 }
 
@@ -35,6 +33,10 @@ export async function POST(request: Request) {
     const body = await request.json()
     
     const { titulo, descricao, data, hora_inicio, hora_fim } = body
+
+    if (!titulo || !data || !hora_inicio) {
+      return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 })
+    }
 
     const { data: inserted, error } = await supabase
       .from('agenda')
@@ -48,22 +50,29 @@ export async function POST(request: Request) {
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Erro ao criar compromisso:', error)
+      return NextResponse.json({ error: error.message, needsSetup: true }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true, data: inserted })
   } catch (error) {
     console.error('Erro ao criar compromisso:', error)
-    return NextResponse.json({ error: 'Erro ao criar compromisso' }, { status: 500 })
+    return NextResponse.json({ error: 'Erro ao criar' }, { status: 500 })
   }
 }
 
-// PUT - Atualizar compromisso
+// PUT - Atualizar compromisso existente
 export async function PUT(request: Request) {
   try {
     const supabase = await createClient()
     const body = await request.json()
     
     const { id, titulo, descricao, data, hora_inicio, hora_fim } = body
+
+    if (!id || !titulo || !data || !hora_inicio) {
+      return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 })
+    }
 
     const { error } = await supabase
       .from('agenda')
@@ -77,12 +86,15 @@ export async function PUT(request: Request) {
       })
       .eq('id', id)
 
-    if (error) throw error
+    if (error) {
+      console.error('Erro ao atualizar compromisso:', error)
+      return NextResponse.json({ error: error.message, needsSetup: true }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Erro ao atualizar compromisso:', error)
-    return NextResponse.json({ error: 'Erro ao atualizar compromisso' }, { status: 500 })
+    return NextResponse.json({ error: 'Erro ao atualizar' }, { status: 500 })
   }
 }
 
@@ -102,11 +114,14 @@ export async function DELETE(request: Request) {
       .delete()
       .eq('id', id)
 
-    if (error) throw error
+    if (error) {
+      console.error('Erro ao excluir compromisso:', error)
+      return NextResponse.json({ error: error.message, needsSetup: true }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Erro ao excluir compromisso:', error)
-    return NextResponse.json({ error: 'Erro ao excluir compromisso' }, { status: 500 })
+    return NextResponse.json({ error: 'Erro ao excluir' }, { status: 500 })
   }
 }
