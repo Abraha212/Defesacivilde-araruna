@@ -3,13 +3,12 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from 'react'
-import { FileText, Check, Loader2, RefreshCw } from 'lucide-react'
+import { FileText, Check, Loader2, RefreshCw, Database, AlertTriangle } from 'lucide-react'
 
 interface Memorando {
   id: string
   numero: number
   status: 'pendente' | 'concluido'
-  observacao: string | null
   updated_at: string
 }
 
@@ -18,46 +17,127 @@ export default function MemorandosPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'todos' | 'pendente' | 'concluido'>('todos')
   const [saving, setSaving] = useState<number | null>(null)
+  const [needsSetup, setNeedsSetup] = useState(false)
+  const [useLocal, setUseLocal] = useState(false)
 
-  const loadMemorandos = useCallback(() => {
+  // Carregar memorandos
+  const loadMemorandos = useCallback(async () => {
     setLoading(true)
+    
+    try {
+      const response = await fetch('/api/memorandos')
+      const result = await response.json()
+      
+      if (result.needsSetup) {
+        setNeedsSetup(true)
+        // Carregar do localStorage como fallback
+        loadFromLocalStorage()
+      } else if (result.data && result.data.length > 0) {
+        // Preencher os números que faltam (1-100)
+        const existing = new Map(result.data.map((m: Memorando) => [m.numero, m]))
+        const full: Memorando[] = Array.from({ length: 100 }, (_, i) => {
+          const num = i + 1
+          return existing.get(num) || {
+            id: `memo-${num}`,
+            numero: num,
+            status: 'pendente' as const,
+            updated_at: new Date().toISOString()
+          }
+        })
+        setMemorandos(full)
+        setUseLocal(false)
+      } else {
+        // Banco vazio, inicializar
+        const initial: Memorando[] = Array.from({ length: 100 }, (_, i) => ({
+          id: `memo-${i + 1}`,
+          numero: i + 1,
+          status: 'pendente' as const,
+          updated_at: new Date().toISOString()
+        }))
+        setMemorandos(initial)
+        setUseLocal(false)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar memorandos:', error)
+      loadFromLocalStorage()
+    }
+    
+    setLoading(false)
+  }, [])
+
+  const loadFromLocalStorage = () => {
     const saved = localStorage.getItem('memorandos_defesacivil')
     if (saved) {
       setMemorandos(JSON.parse(saved))
     } else {
       const initial: Memorando[] = Array.from({ length: 100 }, (_, i) => ({
-        id: `memo-${i + 1}`, numero: i + 1, status: 'pendente' as const,
-        observacao: null, updated_at: new Date().toISOString()
+        id: `memo-${i + 1}`,
+        numero: i + 1,
+        status: 'pendente' as const,
+        updated_at: new Date().toISOString()
       }))
       setMemorandos(initial)
       localStorage.setItem('memorandos_defesacivil', JSON.stringify(initial))
     }
-    setLoading(false)
-  }, [])
-
-  const saveToLocalStorage = useCallback((data: Memorando[]) => {
-    localStorage.setItem('memorandos_defesacivil', JSON.stringify(data))
-  }, [])
+    setUseLocal(true)
+  }
 
   useEffect(() => { loadMemorandos() }, [loadMemorandos])
 
   const toggleStatus = async (memorando: Memorando) => {
     setSaving(memorando.numero)
     const novoStatus = memorando.status === 'pendente' ? 'concluido' : 'pendente'
-    await new Promise(resolve => setTimeout(resolve, 150))
+
+    // Atualizar UI imediatamente
     const updated = memorandos.map(m => 
-      m.id === memorando.id ? { ...m, status: novoStatus as 'pendente' | 'concluido', updated_at: new Date().toISOString() } : m
+      m.numero === memorando.numero 
+        ? { ...m, status: novoStatus as 'pendente' | 'concluido', updated_at: new Date().toISOString() } 
+        : m
     )
     setMemorandos(updated)
-    saveToLocalStorage(updated)
+
+    if (useLocal) {
+      localStorage.setItem('memorandos_defesacivil', JSON.stringify(updated))
+    } else {
+      try {
+        await fetch('/api/memorandos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numero: memorando.numero, status: novoStatus })
+        })
+      } catch (error) {
+        console.error('Erro ao salvar:', error)
+        // Salvar localmente como fallback
+        localStorage.setItem('memorandos_defesacivil', JSON.stringify(updated))
+      }
+    }
+    
     setSaving(null)
   }
 
-  const resetAll = () => {
-    if (confirm('Resetar todos os memorandos para "Pendente"?')) {
-      const reset = memorandos.map(m => ({ ...m, status: 'pendente' as const, updated_at: new Date().toISOString() }))
-      setMemorandos(reset)
-      saveToLocalStorage(reset)
+  const resetAll = async () => {
+    if (!confirm('Resetar todos os memorandos para "Pendente"?')) return
+    
+    const reset = memorandos.map(m => ({
+      ...m,
+      status: 'pendente' as const,
+      updated_at: new Date().toISOString()
+    }))
+    setMemorandos(reset)
+
+    if (useLocal) {
+      localStorage.setItem('memorandos_defesacivil', JSON.stringify(reset))
+    } else {
+      try {
+        await fetch('/api/memorandos', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memorandos: reset })
+        })
+      } catch (error) {
+        console.error('Erro ao resetar:', error)
+        localStorage.setItem('memorandos_defesacivil', JSON.stringify(reset))
+      }
     }
   }
 
@@ -79,11 +159,36 @@ export default function MemorandosPage() {
 
   return (
     <div className="space-y-4">
+      {/* Aviso de setup necessário */}
+      {needsSetup && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold text-amber-800">Tabela não encontrada no banco</p>
+            <p className="text-amber-700 mt-1">Execute o SQL abaixo no Supabase para ativar o salvamento em nuvem:</p>
+            <pre className="bg-amber-100 rounded p-2 mt-2 text-xs overflow-x-auto">
+{`CREATE TABLE memorandos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  numero INTEGER NOT NULL UNIQUE,
+  status VARCHAR(20) DEFAULT 'pendente',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);`}
+            </pre>
+            <p className="text-amber-600 text-xs mt-2">Por enquanto, os dados estão sendo salvos localmente no navegador.</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-[#1e3a5f]">Controle de Memorandos</h1>
-          <p className="text-xs text-slate-500">Numeração oficial da Defesa Civil</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-lg font-bold text-[#1e3a5f]">Controle de Memorandos</h1>
+            <p className="text-xs text-slate-500 flex items-center gap-1">
+              <Database className="w-3 h-3" />
+              {useLocal ? 'Salvando localmente' : 'Salvando no banco de dados'}
+            </p>
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
@@ -132,7 +237,7 @@ export default function MemorandosPage() {
       <div className="bg-white rounded-lg border border-slate-200 p-4">
         <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
           {filteredMemorandos.map(m => (
-            <button key={m.id} onClick={() => toggleStatus(m)} disabled={saving === m.numero}
+            <button key={m.numero} onClick={() => toggleStatus(m)} disabled={saving === m.numero}
               className={`relative aspect-square rounded-lg flex items-center justify-center font-bold text-sm transition-all
                 ${m.status === 'concluido' ? 'bg-[#1e3a5f] text-white' : 'bg-white border-2 border-slate-200 text-slate-400 hover:border-[#1e3a5f] hover:text-[#1e3a5f]'}
                 ${saving === m.numero ? 'opacity-50 scale-95' : 'active:scale-95'}`}>
