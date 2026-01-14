@@ -10,10 +10,13 @@
 Este software converte arquivos NetCDF (.nc) para CSV.
 Otimizado para processar arquivos muito grandes (3GB, 4GB ou mais).
 
+Novidade: Suporte a conversão em lote e unificação de arquivos!
+
 Uso:
     - Execute o programa
-    - Selecione o arquivo .nc
-    - Escolha onde salvar o CSV
+    - Selecione um ou mais arquivos .nc
+    - Escolha a pasta de destino
+    - (Opcional) Marque para unificar todos em um único CSV
     - Aguarde o processamento
 """
 
@@ -74,6 +77,7 @@ class ConversorNetCDF:
         self.progresso_total = tk.DoubleVar(value=0)
         self.processando = False
         self.cancelar = False
+        self.unificar_csv = tk.BooleanVar(value=False)
         
         # Configurar estilo
         self.configurar_estilo()
@@ -197,6 +201,24 @@ class ConversorNetCDF:
             self.selecionar_diretorio,
             "Escolher pasta"
         )
+        
+        # Opções Adicionais
+        opcoes_frame = tk.Frame(main_frame, bg=CORES['bg_principal'])
+        opcoes_frame.pack(fill="x", pady=(0, 15))
+        
+        self.check_unificar = tk.Checkbutton(
+            opcoes_frame,
+            text="Unificar todos os arquivos em um único CSV",
+            variable=self.unificar_csv,
+            font=("Segoe UI", 11),
+            bg=CORES['bg_principal'],
+            fg=CORES['texto'],
+            activebackground=CORES['bg_principal'],
+            activeforeground=CORES['accent'],
+            selectcolor=CORES['bg_secundario'],
+            cursor="hand2"
+        )
+        self.check_unificar.pack(side="left")
         
         # ═══════════════════════════════════════════════════════════
         # CARD: PROGRESSO
@@ -490,13 +512,29 @@ class ConversorNetCDF:
         sucessos = 0
         erros = []
         total_linhas_global = 0
+        unificar = self.unificar_csv.get()
+        
+        # Se unificar, definir o arquivo único de saída
+        arquivo_unico = None
+        if unificar:
+            data_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
+            arquivo_unico = str(Path(saida_dir) / f"NetCDF_Unificado_{data_hora}.csv")
         
         for idx, entrada in enumerate(entradas):
             if self.cancelar:
                 break
                 
             nome_arquivo = Path(entrada).name
-            saida_csv = str(Path(saida_dir) / f"{Path(entrada).stem}.csv")
+            
+            if unificar:
+                saida_csv = arquivo_unico
+                modo_unificado = True
+                # Primeiro arquivo do lote escreve o cabeçalho, os outros apenas dão append
+                escrever_header = (sucessos == 0)
+            else:
+                saida_csv = str(Path(saida_dir) / f"{Path(entrada).stem}.csv")
+                modo_unificado = False
+                escrever_header = True
             
             self.status.set(f"📄 Arquivo {idx+1}/{total_arquivos}: {nome_arquivo}")
             
@@ -506,7 +544,14 @@ class ConversorNetCDF:
                 peso_arquivo = 100 / total_arquivos
                 
                 # Chamar o conversor para o arquivo individual
-                linhas = self.converter_individual(entrada, saida_csv, offset_progresso, peso_arquivo)
+                linhas = self.converter_individual(
+                    entrada, 
+                    saida_csv, 
+                    offset_progresso, 
+                    peso_arquivo, 
+                    append=modo_unificado and not escrever_header,
+                    write_header=escrever_header
+                )
                 
                 if linhas > 0:
                     sucessos += 1
@@ -523,11 +568,19 @@ class ConversorNetCDF:
         elif erros and sucessos == 0:
             self.finalizar_conversao(False, f"❌ Falha em todos os {total_arquivos} arquivos.\nPrimeiro erro: {erros[0]}")
         elif erros:
-            self.finalizar_conversao(True, f"⚠️ Concluído com {len(erros)} erros.\n{sucessos} arquivos convertidos com sucesso.")
+            msg = f"⚠️ Concluído com {len(erros)} erros.\n{sucessos} arquivos convertidos."
+            if unificar:
+                msg += f"\nArquivo unificado gerado."
+            self.finalizar_conversao(True, msg)
         else:
-            self.finalizar_conversao(True, f"✅ Todos os {total_arquivos} arquivos convertidos com sucesso!\nTotal de {total_linhas_global:,} linhas exportadas.")
+            msg = f"✅ Todos os {total_arquivos} arquivos convertidos com sucesso!"
+            if unificar:
+                msg += f"\n📄 Arquivo unificado gerado com {total_linhas_global:,} linhas."
+            else:
+                msg += f"\n📊 Total de {total_linhas_global:,} linhas exportadas."
+            self.finalizar_conversao(True, msg)
 
-    def converter_individual(self, entrada, saida, offset, peso):
+    def converter_individual(self, entrada, saida, offset, peso, append=False, write_header=True):
         try:
             self.atualizar_progresso(offset + (peso * 0.05), f"📖 Abrindo: {Path(entrada).name}")
             
@@ -539,8 +592,8 @@ class ConversorNetCDF:
                 return 0
             
             # Dimensões e variáveis
-            tamanho_dim = ds.dims[list(ds.dims.keys())[0]]
             dim_dividir = list(ds.dims.keys())[0]
+            tamanho_dim = ds.dims[dim_dividir]
             
             # Calcular total de pontos para decidir chunk_size
             total_pontos = 1
@@ -552,7 +605,9 @@ class ConversorNetCDF:
             else:
                 chunk_size = max(1, tamanho_dim // 20)
             
-            primeiro = True
+            # Se for append e NÃO for para escrever header, 'primeiro' é False
+            # Se for modo normal ou o primeiro arquivo da unificação, 'primeiro' é write_header
+            primeiro_bloco = write_header
             total_linhas = 0
             
             for i in range(0, tamanho_dim, chunk_size):
@@ -562,7 +617,7 @@ class ConversorNetCDF:
                 
                 fim = min(i + chunk_size, tamanho_dim)
                 
-                # Progresso dentro do arquivo (de 10% a 90% do peso do arquivo)
+                # Progresso dentro do arquivo
                 prog_interno = (i / tamanho_dim) * 0.8
                 self.atualizar_progresso(
                     offset + (peso * (0.1 + prog_interno)),
@@ -573,10 +628,14 @@ class ConversorNetCDF:
                 df_chunk = subset.to_dataframe().reset_index()
                 df_chunk = df_chunk.replace([np.inf, -np.inf], np.nan)
                 
-                if primeiro:
-                    df_chunk.to_csv(saida, index=False, encoding='utf-8-sig', mode='w')
-                    primeiro = False
+                # Definir modo de escrita
+                # Se for o primeiro bloco de um novo arquivo ou o primeiro bloco da unificação
+                if primeiro_bloco:
+                    # Se append=True mas write_header=True, significa que é o começo do arquivo unificado
+                    df_chunk.to_csv(saida, index=False, encoding='utf-8-sig', mode='a' if append else 'w')
+                    primeiro_bloco = False
                 else:
+                    # Todos os outros blocos são append sem header
                     df_chunk.to_csv(saida, index=False, encoding='utf-8-sig', mode='a', header=False)
                 
                 total_linhas += len(df_chunk)
