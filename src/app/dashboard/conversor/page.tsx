@@ -474,6 +474,11 @@ export default function ConversorPage() {
                 <ul className="list-disc list-inside space-y-1 ml-1">
                   <li>Limite online: 50MB por arquivo</li>
                   <li>Para arquivos maiores: use o Software Desktop</li>
+                  <li>
+                    <a href="https://www.python.org/downloads/" target="_blank" rel="noopener noreferrer" className="text-[#e87722] hover:underline">
+                      Baixe o Python
+                    </a> se necessário
+                  </li>
                 </ul>
               </div>
             </div>
@@ -505,12 +510,21 @@ export default function ConversorPage() {
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-amber-800">
+              <div className="text-sm text-amber-800 flex-1">
                 <strong>Requisitos:</strong>
                 <ul className="mt-1 list-disc list-inside">
                   <li>Windows 10/11</li>
                   <li>Python 3.10+ instalado</li>
                 </ul>
+                <a 
+                  href="https://www.python.org/downloads/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-2 text-[#1e3a5f] font-bold hover:underline"
+                >
+                  <Download className="w-3 h-3" />
+                  Não tem Python? Baixe aqui
+                </a>
               </div>
             </div>
 
