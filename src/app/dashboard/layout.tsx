@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { 
   LayoutDashboard, 
   FileSpreadsheet, 
@@ -12,10 +12,10 @@ import {
   FileText, 
   LogOut,
   User as UserIcon,
-  Lightbulb
+  Lightbulb,
+  Menu,
+  X
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 const menuItems = [
   { name: 'Painel', href: '/dashboard', icon: LayoutDashboard },
@@ -32,16 +32,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
-  const [user, setUser] = useState<SupabaseUser | null>(null)
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-    }
-    getUser()
-  }, [supabase.auth])
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleLogout = async () => {
     try {
@@ -63,49 +54,45 @@ export default function DashboardLayout({
     }).format(new Date())
   }
 
+  const closeMobileMenu = () => setMobileMenuOpen(false)
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+    <div className="flex min-h-screen bg-slate-50">
+      {/* Overlay para mobile */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={closeMobileMenu}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside style={{ 
-        width: '280px', 
-        backgroundColor: '#1e3a5f', 
-        color: 'white',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        zIndex: 50
-      }}>
+      <aside className={`
+        fixed lg:fixed left-0 top-0 bottom-0 z-50
+        w-72 bg-[#1e3a5f] text-white
+        flex flex-col
+        transform transition-transform duration-300 ease-in-out
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         {/* Logo */}
-        <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ 
-              width: '56px', 
-              height: '56px', 
-              backgroundColor: 'white', 
-              borderRadius: '12px',
-              padding: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="p-5 lg:p-6 border-b border-white/10">
+          <div className="flex items-center gap-3 lg:gap-4">
+            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white rounded-xl p-2 flex items-center justify-center flex-shrink-0">
               <img 
                 src="/images/logo-prefeitura.png" 
                 alt="Brasão"
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                className="w-full h-full object-contain"
               />
             </div>
             <div>
-              <h1 style={{ fontWeight: 'bold', fontSize: '18px', margin: 0 }}>DEFESA CIVIL</h1>
-              <p style={{ fontSize: '12px', color: '#f59d4d', margin: 0 }}>ARARUNA / PB</p>
+              <h1 className="font-bold text-base lg:text-lg leading-tight">DEFESA CIVIL</h1>
+              <p className="text-xs text-[#f59d4d]">ARARUNA / PB</p>
             </div>
           </div>
         </div>
 
         {/* Menu */}
-        <nav style={{ flex: 1, padding: '16px' }}>
+        <nav className="flex-1 p-3 lg:p-4 overflow-y-auto">
           {menuItems.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
@@ -113,107 +100,102 @@ export default function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '14px 16px',
-                  marginBottom: '8px',
-                  borderRadius: '12px',
-                  textDecoration: 'none',
-                  color: isActive ? 'white' : 'rgba(255,255,255,0.7)',
-                  backgroundColor: isActive ? '#e87722' : 'transparent',
-                  fontWeight: isActive ? '600' : '400',
-                  transition: 'all 0.2s'
-                }}
+                onClick={closeMobileMenu}
+                className={`
+                  flex items-center gap-3 px-4 py-3 mb-2 rounded-xl
+                  transition-all duration-200
+                  ${isActive 
+                    ? 'bg-[#e87722] text-white font-semibold' 
+                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  }
+                `}
               >
-                <Icon style={{ width: '20px', height: '20px' }} />
-                <span>{item.name}</span>
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                <span className="text-sm lg:text-base">{item.name}</span>
               </Link>
             )
           })}
         </nav>
 
         {/* Logout */}
-        <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="p-3 lg:p-4 border-t border-white/10">
           <button
             onClick={handleLogout}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '14px 16px',
-              borderRadius: '12px',
-              border: 'none',
-              backgroundColor: 'transparent',
-              color: 'rgba(255,255,255,0.7)',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl
+              text-white/70 hover:bg-red-500/20 hover:text-red-300
+              transition-all duration-200 text-sm lg:text-base"
           >
-            <LogOut style={{ width: '20px', height: '20px' }} />
+            <LogOut className="w-5 h-5 flex-shrink-0" />
             <span>Sair do Sistema</span>
           </button>
         </div>
 
         {/* Rodapé com crédito */}
-        <div style={{ 
-          padding: '12px 16px', 
-          borderTop: '1px solid rgba(255,255,255,0.1)',
-          textAlign: 'center'
-        }}>
-          <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-            Desenvolvido por
-          </p>
-          <p style={{ fontSize: '12px', fontWeight: '600', color: '#f59d4d', margin: '2px 0 0 0' }}>
-            Abraham Câmara
-          </p>
+        <div className="px-4 py-3 border-t border-white/10 text-center">
+          <p className="text-[10px] text-white/40">Desenvolvido por</p>
+          <p className="text-xs font-semibold text-[#f59d4d]">Abraham Câmara</p>
         </div>
       </aside>
 
       {/* Main Content */}
-      <div style={{ marginLeft: '280px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-1 flex flex-col lg:ml-72">
         {/* Header */}
-        <header style={{ 
-          height: '64px', 
-          backgroundColor: 'white', 
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 24px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 40
-        }}>
-          <p style={{ fontSize: '14px', color: '#64748b', margin: 0, textTransform: 'capitalize' }}>
+        <header className="h-14 lg:h-16 bg-white border-b border-slate-200 
+          flex items-center justify-between px-4 lg:px-6
+          sticky top-0 z-30">
+          
+          {/* Botão Menu Mobile */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="lg:hidden p-2 -ml-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+
+          {/* Data - escondida em mobile pequeno */}
+          <p className="hidden sm:block text-sm text-slate-500 capitalize">
             {formatDate()}
           </p>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '14px', fontWeight: '600', color: '#1e3a5f', margin: 0 }}>
-                Defesa Civil
-              </p>
-              <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Acesso Administrativo</p>
+          {/* Logo mobile centralizada */}
+          <div className="lg:hidden flex items-center gap-2">
+            <div className="w-8 h-8 bg-[#1e3a5f] rounded-lg p-1 flex items-center justify-center">
+              <img 
+                src="/images/logo-prefeitura.png" 
+                alt="Brasão"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <div style={{ 
-              width: '40px', 
-              height: '40px', 
-              backgroundColor: '#1e3a5f', 
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <UserIcon style={{ width: '20px', height: '20px', color: 'white' }} />
+            <span className="font-bold text-[#1e3a5f] text-sm">Defesa Civil</span>
+          </div>
+
+          {/* User info */}
+          <div className="flex items-center gap-2 lg:gap-4">
+            <div className="hidden sm:block text-right">
+              <p className="text-sm font-semibold text-[#1e3a5f]">Defesa Civil</p>
+              <p className="text-xs text-slate-400">Acesso Administrativo</p>
+            </div>
+            <div className="w-9 h-9 lg:w-10 lg:h-10 bg-[#1e3a5f] rounded-xl flex items-center justify-center">
+              <UserIcon className="w-5 h-5 text-white" />
             </div>
           </div>
         </header>
 
+        {/* Botão fechar menu mobile */}
+        {mobileMenuOpen && (
+          <button
+            onClick={closeMobileMenu}
+            className="fixed top-4 right-4 z-50 lg:hidden
+              w-10 h-10 bg-white rounded-full shadow-lg
+              flex items-center justify-center
+              text-slate-600 hover:text-slate-900"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        )}
+
         {/* Page Content */}
-        <main style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
+        <main className="flex-1 p-4 lg:p-6 overflow-auto">
           {children}
         </main>
       </div>

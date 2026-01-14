@@ -13,8 +13,7 @@ import {
   X,
   Clock,
   HardDrive,
-  Monitor,
-  ExternalLink
+  Monitor
 } from 'lucide-react'
 
 export default function ConversorPage() {
@@ -45,7 +44,6 @@ export default function ConversorPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Timer para tempo decorrido
   useEffect(() => {
     if (loading && startTime) {
       timerRef.current = setInterval(() => {
@@ -60,9 +58,7 @@ export default function ConversorPage() {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
-    if (mins > 0) {
-      return `${mins}m ${secs}s`
-    }
+    if (mins > 0) return `${mins}m ${secs}s`
     return `${secs}s`
   }
 
@@ -81,7 +77,6 @@ export default function ConversorPage() {
         setError('Selecione um arquivo NetCDF (.nc)')
         return
       }
-      // Limite de 50MB para a Vercel (serverless)
       if (file.size > 50 * 1024 * 1024) {
         setError('Arquivo muito grande para versão online. Use o Software Desktop para arquivos maiores que 50MB.')
         setShowDesktopModal(true)
@@ -114,12 +109,8 @@ export default function ConversorPage() {
   }
 
   const cancelar = () => {
-    if (xhrRef.current) {
-      xhrRef.current.abort()
-    }
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
+    if (xhrRef.current) xhrRef.current.abort()
+    if (timerRef.current) clearInterval(timerRef.current)
     setLoading(false)
     setPhase('idle')
     setProgress(0)
@@ -195,9 +186,7 @@ export default function ConversorPage() {
             const text = new TextDecoder().decode(xhr.response)
             const json = JSON.parse(text)
             errorMsg = json.detail || errorMsg
-          } catch {
-            // Usar mensagem padrão
-          }
+          } catch {}
           setError(errorMsg)
           setPhase('error')
           setLoading(false)
@@ -213,7 +202,7 @@ export default function ConversorPage() {
 
       xhr.ontimeout = () => {
         if (timerRef.current) clearInterval(timerRef.current)
-        setError('Timeout: a requisição demorou demais. Tente com arquivo menor ou use o Software Desktop.')
+        setError('Timeout: a requisição demorou demais. Use o Software Desktop.')
         setPhase('error')
         setLoading(false)
       }
@@ -246,155 +235,73 @@ export default function ConversorPage() {
     return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
   }
 
-  const getProcessingSteps = () => {
-    const steps = [
-      { label: 'Lendo arquivo NetCDF', done: elapsedTime > 3 },
-      { label: 'Extraindo variáveis', done: elapsedTime > 8 },
-      { label: 'Convertendo dados', done: elapsedTime > 15 },
-      { label: 'Gerando arquivo CSV', done: false },
-    ]
-    return steps
-  }
+  const getProcessingSteps = () => [
+    { label: 'Lendo arquivo NetCDF', done: elapsedTime > 3 },
+    { label: 'Extraindo variáveis', done: elapsedTime > 8 },
+    { label: 'Convertendo dados', done: elapsedTime > 15 },
+    { label: 'Gerando arquivo CSV', done: false },
+  ]
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{
-            width: '56px',
-            height: '56px',
-            background: 'linear-gradient(135deg, #e87722, #c55a0a)',
-            borderRadius: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(232,119,34,0.3)'
-          }}>
-            <FileSpreadsheet style={{ width: '28px', height: '28px', color: 'white' }} />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-[#e87722] to-[#c55a0a] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-orange-200">
+            <FileSpreadsheet className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
           </div>
           <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e3a5f', margin: 0 }}>
-              Conversor NetCDF
-            </h1>
-            <p style={{ color: '#64748b', margin: 0 }}>Converta arquivos .nc para CSV</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-[#1e3a5f]">Conversor NetCDF</h1>
+            <p className="text-sm text-slate-500 hidden sm:block">Converta arquivos .nc para CSV</p>
           </div>
         </div>
         
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '8px 16px',
-          borderRadius: '20px',
-          fontSize: '14px',
-          fontWeight: '500',
-          backgroundColor: backendOnline ? '#dcfce7' : backendOnline === false ? '#fee2e2' : '#f1f5f9',
-          color: backendOnline ? '#166534' : backendOnline === false ? '#991b1b' : '#475569'
-        }}>
-          <span style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: backendOnline ? '#22c55e' : backendOnline === false ? '#ef4444' : '#94a3b8'
-          }} />
+        <div className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium self-start sm:self-auto
+          ${backendOnline ? 'bg-green-100 text-green-700' : backendOnline === false ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}
+        >
+          <span className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-green-500' : backendOnline === false ? 'bg-red-500' : 'bg-slate-400'}`} />
           {backendOnline === null ? 'Verificando...' : backendOnline ? 'Online' : 'Offline'}
         </div>
       </div>
 
       {/* Banner do Software Desktop */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
-        borderRadius: '16px',
-        padding: '24px',
-        marginBottom: '24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '20px',
-        border: '1px solid #334155'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{
-            width: '56px',
-            height: '56px',
-            background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-            borderRadius: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Monitor style={{ width: '28px', height: '28px', color: 'white' }} />
+      <div className="bg-gradient-to-r from-[#1e3a5f] to-[#0f172a] rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-slate-700">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-violet-500 to-indigo-500 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Monitor className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-sm sm:text-base">Arquivos grandes? Baixe o Software Desktop!</h3>
+              <p className="text-slate-400 text-xs sm:text-sm">Processe arquivos de 3GB, 4GB ou mais</p>
+            </div>
           </div>
-          <div>
-            <h3 style={{ color: 'white', fontWeight: 'bold', margin: 0, fontSize: '16px' }}>
-              Arquivos grandes? Baixe o Software Desktop!
-            </h3>
-            <p style={{ color: '#94a3b8', margin: '4px 0 0', fontSize: '14px' }}>
-              Processe arquivos de 3GB, 4GB ou mais no seu computador
-            </p>
-          </div>
+          <button
+            onClick={() => setShowDesktopModal(true)}
+            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-violet-500 to-indigo-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity w-full sm:w-auto"
+          >
+            <Download className="w-4 h-4" />
+            Baixar Software
+          </button>
         </div>
-        <button
-          onClick={() => setShowDesktopModal(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '12px 24px',
-            background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <Download style={{ width: '18px', height: '18px' }} />
-          Baixar Software
-        </button>
       </div>
 
       {backendOnline === false && (
-        <div style={{
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
-          borderRadius: '12px',
-          padding: '16px',
-          marginBottom: '24px',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '12px'
-        }}>
-          <AlertCircle style={{ width: '20px', height: '20px', color: '#ef4444', flexShrink: 0 }} />
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p style={{ fontWeight: '600', color: '#991b1b', margin: 0 }}>Serviço temporariamente indisponível</p>
-            <p style={{ color: '#dc2626', fontSize: '14px', margin: '4px 0 0' }}>
-              Aguarde alguns segundos e tente novamente, ou baixe o Software Desktop.
-            </p>
+            <p className="font-semibold text-red-800 text-sm">Serviço temporariamente indisponível</p>
+            <p className="text-red-600 text-xs sm:text-sm">Aguarde alguns segundos ou baixe o Software Desktop.</p>
           </div>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Upload Area */}
         <div 
-          style={{
-            backgroundColor: 'white',
-            borderRadius: '16px',
-            border: dragOver ? '2px dashed #e87722' : selectedFile ? '2px dashed #22c55e' : '2px dashed #e2e8f0',
-            padding: '32px',
-            minHeight: '350px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: loading ? 'default' : 'pointer',
-            transition: 'all 0.2s',
-            opacity: loading ? 0.7 : 1
-          }}
+          className={`bg-white rounded-xl sm:rounded-2xl border-2 border-dashed p-6 sm:p-8 min-h-[280px] sm:min-h-[350px] flex flex-col items-center justify-center cursor-pointer transition-all
+            ${dragOver ? 'border-[#e87722] bg-orange-50' : selectedFile ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-slate-300'}
+            ${loading ? 'opacity-70 cursor-default' : ''}`}
           onClick={() => !loading && fileInputRef.current?.click()}
           onDrop={handleDrop}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -405,289 +312,145 @@ export default function ConversorPage() {
             type="file"
             accept=".nc"
             onChange={handleFileSelect}
-            style={{ display: 'none' }}
+            className="hidden"
           />
 
           {selectedFile ? (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{
-                width: '80px',
-                height: '80px',
-                backgroundColor: '#dcfce7',
-                borderRadius: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px'
-              }}>
-                <File style={{ width: '40px', height: '40px', color: '#22c55e' }} />
+            <div className="text-center">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <File className="w-8 h-8 sm:w-10 sm:h-10 text-green-500" />
               </div>
-              <p style={{ fontWeight: 'bold', fontSize: '16px', color: '#1e3a5f', margin: 0, wordBreak: 'break-all', maxWidth: '300px' }}>
+              <p className="font-bold text-sm sm:text-base text-[#1e3a5f] break-all max-w-[250px] sm:max-w-[300px]">
                 {selectedFile.name}
               </p>
-              <p style={{ color: '#64748b', margin: '8px 0', fontSize: '18px', fontWeight: '600' }}>
+              <p className="text-slate-600 mt-2 text-lg sm:text-xl font-semibold">
                 {formatSize(selectedFile.size)}
               </p>
               
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                gap: '6px',
-                color: '#f59d4d',
-                fontSize: '14px',
-                marginTop: '8px'
-              }}>
-                <Clock style={{ width: '16px', height: '16px' }} />
-                <span>Tempo estimado: {estimateTime(selectedFile.size)}</span>
+              <div className="flex items-center justify-center gap-1.5 text-amber-600 text-xs sm:text-sm mt-2">
+                <Clock className="w-4 h-4" />
+                <span>Estimado: {estimateTime(selectedFile.size)}</span>
               </div>
               
               {!loading && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setSelectedFile(null); setError(null); setPhase('idle'); }}
-                  style={{
-                    marginTop: '16px',
-                    color: '#ef4444',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
+                  className="mt-4 text-red-500 hover:text-red-600 text-sm font-medium flex items-center gap-1 mx-auto"
                 >
-                  <X style={{ width: '16px', height: '16px' }} /> Remover
+                  <X className="w-4 h-4" /> Remover
                 </button>
               )}
             </div>
           ) : (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{
-                width: '80px',
-                height: '80px',
-                backgroundColor: '#f1f5f9',
-                borderRadius: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px'
-              }}>
-                <Upload style={{ width: '40px', height: '40px', color: '#94a3b8' }} />
+            <div className="text-center">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Upload className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
               </div>
-              <p style={{ fontWeight: 'bold', fontSize: '18px', color: '#1e3a5f', margin: 0 }}>
-                Arraste o arquivo aqui
-              </p>
-              <p style={{ color: '#94a3b8', margin: '8px 0' }}>ou clique para selecionar</p>
-              <p style={{ fontSize: '12px', color: '#94a3b8' }}>Formato aceito: .nc (NetCDF)</p>
-              <p style={{ fontSize: '11px', color: '#e87722', marginTop: '8px' }}>Limite online: 50MB</p>
+              <p className="font-bold text-base sm:text-lg text-[#1e3a5f]">Arraste o arquivo aqui</p>
+              <p className="text-slate-400 text-sm mt-1">ou toque para selecionar</p>
+              <p className="text-xs text-slate-400 mt-2">Formato: .nc (NetCDF)</p>
+              <p className="text-xs text-[#e87722] mt-1">Limite online: 50MB</p>
             </div>
           )}
         </div>
 
         {/* Right Panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div className="flex flex-col gap-4 sm:gap-6">
           
           {/* Processing Status */}
           {loading && (
-            <div style={{
-              backgroundColor: '#1e3a5f',
-              borderRadius: '16px',
-              padding: '24px',
-              color: 'white'
-            }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                marginBottom: '16px',
-                paddingBottom: '16px',
-                borderBottom: '1px solid rgba(255,255,255,0.1)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Clock style={{ width: '20px', height: '20px', color: '#f59d4d' }} />
-                  <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>Tempo decorrido</span>
+            <div className="bg-[#1e3a5f] rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white">
+              <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-400" />
+                  <span className="text-xs sm:text-sm text-white/70">Tempo decorrido</span>
                 </div>
-                <span style={{ 
-                  fontSize: '24px', 
-                  fontWeight: 'bold', 
-                  color: '#f59d4d',
-                  fontFamily: 'monospace'
-                }}>
+                <span className="text-xl sm:text-2xl font-bold text-amber-400 font-mono">
                   {formatTime(elapsedTime)}
                 </span>
               </div>
 
               {phase === 'uploading' && (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                    <Upload style={{ width: '20px', height: '20px' }} />
-                    <span style={{ fontWeight: '600' }}>Enviando para o servidor</span>
-                    <span style={{ marginLeft: 'auto', fontWeight: 'bold', color: '#f59d4d' }}>{progress}%</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Upload className="w-4 h-4" />
+                      <span className="text-sm font-medium">Enviando...</span>
+                    </div>
+                    <span className="font-bold text-amber-400">{progress}%</span>
                   </div>
-                  <div style={{ height: '8px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
-                    <div style={{
-                      height: '100%',
-                      background: 'linear-gradient(90deg, #e87722, #f59d4d)',
-                      borderRadius: '4px',
-                      transition: 'width 0.3s',
-                      width: `${progress}%`
-                    }} />
+                  <div className="h-2 bg-white/20 rounded-full overflow-hidden mb-2">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#e87722] to-amber-400 rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
                   </div>
-                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>{statusMsg}</p>
+                  <p className="text-xs text-white/60">{statusMsg}</p>
                 </>
               )}
 
               {phase === 'processing' && (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                    <div style={{
-                      width: '24px',
-                      height: '24px',
-                      position: 'relative'
-                    }}>
-                      <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        border: '3px solid rgba(255,255,255,0.2)',
-                        borderRadius: '50%'
-                      }} />
-                      <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        border: '3px solid transparent',
-                        borderTopColor: '#f59d4d',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                      }} />
-                    </div>
-                    <span style={{ fontWeight: '600' }}>Processando arquivo</span>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-5 h-5 border-2 border-white/20 border-t-amber-400 rounded-full animate-spin" />
+                    <span className="font-medium text-sm">Processando arquivo</span>
                   </div>
 
-                  <div style={{ marginBottom: '16px' }}>
+                  <div className="space-y-2 mb-4">
                     {getProcessingSteps().map((step, i) => (
-                      <div key={i} style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '10px',
-                        marginBottom: '10px',
-                        opacity: step.done ? 0.5 : 1
-                      }}>
-                        <div style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          backgroundColor: step.done ? '#22c55e' : 'rgba(255,255,255,0.2)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '12px'
-                        }}>
+                      <div key={i} className={`flex items-center gap-2 ${step.done ? 'opacity-50' : ''}`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs
+                          ${step.done ? 'bg-green-500' : 'bg-white/20'}`}
+                        >
                           {step.done ? '✓' : (i + 1)}
                         </div>
-                        <span style={{ fontSize: '14px', color: step.done ? 'rgba(255,255,255,0.5)' : 'white' }}>
-                          {step.label}
-                        </span>
-                        {!step.done && i === getProcessingSteps().findIndex(s => !s.done) && (
-                          <span style={{ 
-                            marginLeft: 'auto', 
-                            fontSize: '12px', 
-                            color: '#f59d4d',
-                            animation: 'pulse 1.5s infinite'
-                          }}>
-                            em andamento...
-                          </span>
-                        )}
+                        <span className="text-xs sm:text-sm">{step.label}</span>
                       </div>
                     ))}
                   </div>
 
                   {selectedFile && selectedFile.size > 20 * 1024 * 1024 && (
-                    <div style={{
-                      backgroundColor: 'rgba(245, 157, 77, 0.2)',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '10px',
-                      marginBottom: '16px'
-                    }}>
-                      <HardDrive style={{ width: '18px', height: '18px', color: '#f59d4d', flexShrink: 0 }} />
-                      <div style={{ fontSize: '13px' }}>
-                        <p style={{ margin: 0, color: '#f59d4d', fontWeight: '600' }}>Arquivo grande detectado</p>
-                        <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.7)' }}>
-                          O processamento pode demorar. Não feche esta página.
-                        </p>
+                    <div className="bg-amber-500/20 rounded-lg p-3 flex items-start gap-2 mb-4">
+                      <HardDrive className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div className="text-xs">
+                        <p className="text-amber-400 font-medium">Arquivo grande</p>
+                        <p className="text-white/70">Não feche esta página.</p>
                       </div>
                     </div>
                   )}
 
                   <button
                     onClick={cancelar}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      backgroundColor: 'rgba(255,255,255,0.1)',
-                      border: '1px solid rgba(255,255,255,0.2)',
-                      borderRadius: '8px',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
+                    className="w-full py-2.5 bg-white/10 border border-white/20 rounded-lg text-sm hover:bg-white/20 transition-colors"
                   >
-                    Cancelar conversão
+                    Cancelar
                   </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Success Message */}
+          {/* Success */}
           {phase === 'done' && (
-            <div style={{
-              backgroundColor: '#22c55e',
-              borderRadius: '16px',
-              padding: '24px',
-              color: 'white',
-              textAlign: 'center'
-            }}>
-              <CheckCircle2 style={{ width: '48px', height: '48px', margin: '0 auto 12px' }} />
-              <p style={{ fontWeight: 'bold', fontSize: '18px', margin: 0 }}>Conversão Concluída!</p>
-              <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', margin: '8px 0 0' }}>
-                Tempo total: {formatTime(elapsedTime)}
-              </p>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', margin: '4px 0 0' }}>
-                O download deve iniciar automaticamente
-              </p>
+            <div className="bg-green-500 rounded-xl sm:rounded-2xl p-6 text-white text-center">
+              <CheckCircle2 className="w-12 h-12 mx-auto mb-3" />
+              <p className="font-bold text-lg">Conversão Concluída!</p>
+              <p className="text-white/80 text-sm mt-1">Tempo: {formatTime(elapsedTime)}</p>
+              <p className="text-white/60 text-xs mt-1">Download automático iniciado</p>
             </div>
           )}
 
-          {/* Error Message */}
+          {/* Error */}
           {phase === 'error' && error && (
-            <div style={{
-              backgroundColor: '#ef4444',
-              borderRadius: '16px',
-              padding: '24px',
-              color: 'white'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <AlertCircle style={{ width: '24px', height: '24px', flexShrink: 0 }} />
+            <div className="bg-red-500 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-6 h-6 flex-shrink-0" />
                 <div>
-                  <p style={{ fontWeight: 'bold', margin: 0 }}>Erro na conversão</p>
-                  <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', margin: '4px 0 0' }}>{error}</p>
+                  <p className="font-bold">Erro na conversão</p>
+                  <p className="text-white/80 text-sm mt-1">{error}</p>
                   <button
                     onClick={() => { setPhase('idle'); setError(null); }}
-                    style={{
-                      marginTop: '12px',
-                      padding: '8px 16px',
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
+                    className="mt-3 px-4 py-2 bg-white/20 rounded-lg text-sm hover:bg-white/30 transition-colors"
                   >
                     Tentar novamente
                   </button>
@@ -696,58 +459,28 @@ export default function ConversorPage() {
             </div>
           )}
 
-          {/* Format Selection & Convert Button */}
+          {/* Format & Convert */}
           {selectedFile && !loading && phase !== 'done' && (
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '16px',
-              padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-              border: '1px solid #e2e8f0'
-            }}>
-              <h3 style={{ fontWeight: 'bold', color: '#1e3a5f', margin: '0 0 16px' }}>
-                Formato de Saída
-              </h3>
+            <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-slate-200">
+              <h3 className="font-bold text-[#1e3a5f] mb-4">Formato de Saída</h3>
               
-              <div style={{ marginBottom: '24px' }}>
-                <button
-                  onClick={() => setFormato('csv')}
-                  style={{
-                    width: '100%',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: formato === 'csv' ? '2px solid #e87722' : '2px solid #e2e8f0',
-                    backgroundColor: formato === 'csv' ? '#fff7ed' : 'white',
-                    cursor: 'pointer',
-                    textAlign: 'center'
-                  }}
-                >
-                  <span style={{ fontSize: '24px' }}>📊</span>
-                  <p style={{ fontWeight: 'bold', color: '#1e3a5f', margin: '8px 0 0' }}>CSV</p>
-                  <p style={{ fontSize: '12px', color: '#22c55e', margin: '4px 0 0', fontWeight: '500' }}>Formato disponível</p>
-                </button>
-              </div>
+              <button
+                onClick={() => setFormato('csv')}
+                className={`w-full p-4 rounded-xl border-2 text-center mb-4 transition-all
+                  ${formato === 'csv' ? 'border-[#e87722] bg-orange-50' : 'border-slate-200'}`}
+              >
+                <span className="text-2xl">📊</span>
+                <p className="font-bold text-[#1e3a5f] mt-2">CSV</p>
+                <p className="text-xs text-green-600 mt-1 font-medium">Disponível</p>
+              </button>
 
               <button
                 onClick={handleConverter}
                 disabled={!backendOnline}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '16px',
-                  backgroundColor: backendOnline ? '#e87722' : '#94a3b8',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  cursor: backendOnline ? 'pointer' : 'not-allowed'
-                }}
+                className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-white transition-all
+                  ${backendOnline ? 'bg-[#e87722] hover:bg-[#c55a0a]' : 'bg-slate-300 cursor-not-allowed'}`}
               >
-                <Download style={{ width: '20px', height: '20px' }} />
+                <Download className="w-5 h-5" />
                 Converter e Baixar
               </button>
             </div>
@@ -755,51 +488,27 @@ export default function ConversorPage() {
 
           {/* Instructions */}
           {!selectedFile && !loading && (
-            <div style={{
-              backgroundColor: '#1e293b',
-              borderRadius: '16px',
-              padding: '24px',
-              color: 'white'
-            }}>
-              <h3 style={{ fontWeight: 'bold', margin: '0 0 16px' }}>Como usar</h3>
-              <ol style={{ margin: 0, paddingLeft: '0', listStyle: 'none' }}>
-                {[
-                  'Arraste ou selecione um arquivo .nc',
-                  'Clique em converter e aguarde',
-                  'Download inicia automaticamente'
-                ].map((text, i) => (
-                  <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                    <span style={{
-                      width: '24px',
-                      height: '24px',
-                      backgroundColor: '#e87722',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      flexShrink: 0
-                    }}>{i + 1}</span>
-                    <span style={{ color: '#cbd5e1', fontSize: '14px' }}>{text}</span>
+            <div className="bg-slate-900 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white">
+              <h3 className="font-bold mb-4 text-sm sm:text-base">Como usar</h3>
+              <ol className="space-y-3">
+                {['Arraste ou selecione um arquivo .nc', 'Clique em converter', 'Download automático'].map((text, i) => (
+                  <li key={i} className="flex items-center gap-3">
+                    <span className="w-6 h-6 bg-[#e87722] rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      {i + 1}
+                    </span>
+                    <span className="text-slate-300 text-xs sm:text-sm">{text}</span>
                   </li>
                 ))}
               </ol>
               
-              <div style={{ 
-                marginTop: '16px', 
-                paddingTop: '16px', 
-                borderTop: '1px solid rgba(255,255,255,0.1)',
-                fontSize: '13px',
-                color: '#94a3b8'
-              }}>
-                <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Clock style={{ width: '14px', height: '14px' }} />
-                  Informações:
-                </p>
-                <ul style={{ margin: 0, paddingLeft: '22px' }}>
-                  <li>Limite online: 50MB por arquivo</li>
-                  <li>Para arquivos maiores: use o Software Desktop</li>
+              <div className="mt-4 pt-4 border-t border-white/10 text-xs text-slate-400">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Informações:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-1 ml-1">
+                  <li>Limite online: 50MB</li>
+                  <li>Arquivos maiores: Software Desktop</li>
                 </ul>
               </div>
             </div>
@@ -809,169 +518,75 @@ export default function ConversorPage() {
 
       {/* Modal do Software Desktop */}
       {showDesktopModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }} onClick={() => setShowDesktopModal(false)}>
+        <div 
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowDesktopModal(false)}
+        >
           <div 
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '20px',
-              padding: '32px',
-              maxWidth: '500px',
-              width: '100%',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-            }}
+            className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <div style={{
-                width: '80px',
-                height: '80px',
-                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                borderRadius: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px'
-              }}>
-                <Monitor style={{ width: '40px', height: '40px', color: 'white' }} />
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-violet-500 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Monitor className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
               </div>
-              <h2 style={{ color: '#1e3a5f', margin: 0, fontSize: '24px' }}>Software Desktop</h2>
-              <p style={{ color: '#64748b', margin: '8px 0 0' }}>Para arquivos grandes (3GB, 4GB ou mais)</p>
+              <h2 className="text-[#1e3a5f] font-bold text-xl sm:text-2xl">Software Desktop</h2>
+              <p className="text-slate-500 text-sm">Para arquivos grandes (3GB+)</p>
             </div>
 
-            <div style={{
-              backgroundColor: '#f8fafc',
-              borderRadius: '12px',
-              padding: '20px',
-              marginBottom: '24px'
-            }}>
-              <h4 style={{ color: '#1e3a5f', margin: '0 0 12px', fontSize: '14px' }}>✅ Vantagens:</h4>
-              <ul style={{ margin: 0, paddingLeft: '20px', color: '#475569', fontSize: '14px' }}>
-                <li style={{ marginBottom: '8px' }}>Processa arquivos de qualquer tamanho</li>
-                <li style={{ marginBottom: '8px' }}>Sem limite de tempo</li>
-                <li style={{ marginBottom: '8px' }}>Funciona offline</li>
-                <li>Otimizado para memória (chunks)</li>
+            <div className="bg-slate-50 rounded-xl p-4 mb-4">
+              <h4 className="text-[#1e3a5f] font-bold text-sm mb-2">✅ Vantagens:</h4>
+              <ul className="text-slate-600 text-xs sm:text-sm space-y-1.5 list-disc list-inside">
+                <li>Arquivos de qualquer tamanho</li>
+                <li>Sem limite de tempo</li>
+                <li>Funciona offline</li>
               </ul>
             </div>
 
-            <div style={{
-              backgroundColor: '#fef3c7',
-              borderRadius: '12px',
-              padding: '16px',
-              marginBottom: '24px',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px'
-            }}>
-              <AlertCircle style={{ width: '20px', height: '20px', color: '#f59e0b', flexShrink: 0, marginTop: '2px' }} />
-              <div style={{ fontSize: '13px', color: '#92400e' }}>
+            <div className="bg-amber-50 rounded-xl p-4 mb-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-800">
                 <strong>Requisitos:</strong>
-                <ul style={{ margin: '8px 0 0', paddingLeft: '16px' }}>
+                <ul className="mt-1 list-disc list-inside">
                   <li>Windows 10/11</li>
-                  <li>Python 3.10+ instalado</li>
-                  <li>Bibliotecas: xarray, netcdf4, pandas</li>
+                  <li>Python 3.10+</li>
                 </ul>
               </div>
             </div>
 
-            <div style={{
-              backgroundColor: '#1e293b',
-              borderRadius: '12px',
-              padding: '16px',
-              marginBottom: '24px'
-            }}>
-              <p style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 8px' }}>Instale as dependências:</p>
-              <code style={{ 
-                color: '#22c55e', 
-                fontSize: '13px',
-                display: 'block',
-                padding: '8px',
-                backgroundColor: '#0f172a',
-                borderRadius: '6px'
-              }}>
+            <div className="bg-slate-900 rounded-xl p-4 mb-4">
+              <p className="text-slate-400 text-xs mb-2">Instale as dependências:</p>
+              <code className="text-green-400 text-xs block bg-slate-950 p-2 rounded-lg break-all">
                 pip install xarray netcdf4 pandas numpy
               </code>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div className="flex flex-col sm:flex-row gap-3">
               <a
                 href="/downloads/conversor_desktop.py"
                 download="conversor_desktop.py"
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '14px',
-                  background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '10px',
-                  fontWeight: 'bold',
-                  fontSize: '14px'
-                }}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-violet-500 to-indigo-500 text-white rounded-xl font-bold text-sm"
               >
-                <Download style={{ width: '18px', height: '18px' }} />
-                Baixar Script Python
+                <Download className="w-4 h-4" />
+                Baixar Script
               </a>
               <button
                 onClick={() => setShowDesktopModal(false)}
-                style={{
-                  padding: '14px 24px',
-                  backgroundColor: '#f1f5f9',
-                  color: '#475569',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  cursor: 'pointer'
-                }}
+                className="py-3 px-6 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors"
               >
                 Fechar
               </button>
             </div>
 
-            <p style={{ 
-              textAlign: 'center', 
-              fontSize: '12px', 
-              color: '#94a3b8', 
-              margin: '16px 0 0' 
-            }}>
-              Execute com: <code style={{ backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>python conversor_desktop.py</code>
-            </p>
-
-            <p style={{ 
-              textAlign: 'center', 
-              fontSize: '11px', 
-              color: '#64748b', 
-              margin: '12px 0 0',
-              paddingTop: '12px',
-              borderTop: '1px solid #e2e8f0'
-            }}>
-              Desenvolvido por <span style={{ color: '#e87722', fontWeight: '600' }}>Abraham Câmara</span>
+            <p className="text-center text-xs text-slate-500 mt-4 pt-4 border-t border-slate-100">
+              Desenvolvido por <span className="text-[#e87722] font-semibold">Abraham Câmara</span>
             </p>
           </div>
         </div>
       )}
 
       <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
   )

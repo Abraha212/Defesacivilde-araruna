@@ -102,39 +102,39 @@ export default function DashboardPage() {
   const frase = frasesMotivacionais[fraseAtual]
 
   return (
-    <div>
+    <div className="space-y-6 lg:space-y-8">
       {/* Banner de Frase Motivacional */}
-      <div className="mb-8 bg-gradient-to-r from-[#1e3a5f] via-[#2d5a87] to-[#1e3a5f] rounded-2xl p-8 text-white relative overflow-hidden">
-        {/* Decoração de fundo */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+      <div className="bg-gradient-to-r from-[#1e3a5f] via-[#2d5a87] to-[#1e3a5f] rounded-xl lg:rounded-2xl p-4 sm:p-6 lg:p-8 text-white relative overflow-hidden">
+        {/* Decoração de fundo - escondida em mobile */}
+        <div className="hidden sm:block absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="hidden sm:block absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
         
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-[#e87722] rounded-lg">
-              <Sparkles className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 lg:mb-4">
+            <div className="p-1.5 sm:p-2 bg-[#e87722] rounded-lg">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
-            <span className="text-sm font-medium text-white/70">Frase do Momento</span>
+            <span className="text-xs sm:text-sm font-medium text-white/70">Frase do Momento</span>
           </div>
           
           <div 
             className={`transition-all duration-500 ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
           >
-            <div className="flex items-start gap-4">
-              <Quote className="w-10 h-10 text-[#f59d4d] flex-shrink-0 mt-1" />
-              <div>
-                <p className="text-xl md:text-2xl font-medium leading-relaxed mb-3">
+            <div className="flex items-start gap-2 sm:gap-4">
+              <Quote className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 text-[#f59d4d] flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-base sm:text-lg lg:text-2xl font-medium leading-relaxed mb-2 lg:mb-3">
                   {frase.texto}
                 </p>
-                <p className="text-sm text-[#f59d4d] font-semibold">
+                <p className="text-xs sm:text-sm text-[#f59d4d] font-semibold">
                   — {frase.autor}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Indicadores de frase */}
-          <div className="flex gap-2 mt-6 justify-center">
+          {/* Indicadores de frase - menores em mobile */}
+          <div className="flex gap-1.5 sm:gap-2 mt-4 lg:mt-6 justify-center flex-wrap">
             {frasesMotivacionais.map((_, index) => (
               <button
                 key={index}
@@ -145,10 +145,10 @@ export default function DashboardPage() {
                     setFadeIn(true)
                   }, 300)
                 }}
-                className={`w-2 h-2 rounded-full transition-all ${
+                className={`h-1.5 sm:h-2 rounded-full transition-all ${
                   index === fraseAtual 
-                    ? 'bg-[#e87722] w-6' 
-                    : 'bg-white/30 hover:bg-white/50'
+                    ? 'bg-[#e87722] w-4 sm:w-6' 
+                    : 'bg-white/30 hover:bg-white/50 w-1.5 sm:w-2'
                 }`}
               />
             ))}
@@ -157,30 +157,31 @@ export default function DashboardPage() {
       </div>
 
       {/* Saudação */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#1e3a5f]">
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-[#1e3a5f]">
           Bem-vindo, Defesa Civil
         </h1>
-        <p className="text-[#6b7280] mt-1">
+        <p className="text-sm sm:text-base text-[#6b7280] mt-1">
           Acesse os módulos do sistema através dos atalhos abaixo.
         </p>
       </div>
 
       {/* Cards de acesso rápido */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
         {cards.map((card) => (
           <Link
             key={card.href}
             href={card.href}
-            className="block bg-white rounded-lg border border-[#d1d5db] p-6 hover:shadow-lg transition-shadow duration-200 group"
+            className="block bg-white rounded-xl border border-slate-200 p-4 sm:p-5 lg:p-6 
+              hover:shadow-lg active:scale-[0.98] transition-all duration-200 group"
           >
-            <div className={`w-12 h-12 ${card.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200`}>
-              <card.icon className="w-6 h-6 text-white" />
+            <div className={`w-10 h-10 sm:w-12 sm:h-12 ${card.color} rounded-lg flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-200`}>
+              <card.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
-            <h2 className="text-lg font-semibold text-[#1e3a5f] mb-1">
+            <h2 className="text-base sm:text-lg font-semibold text-[#1e3a5f] mb-1">
               {card.title}
             </h2>
-            <p className="text-sm text-[#6b7280]">
+            <p className="text-xs sm:text-sm text-[#6b7280]">
               {card.description}
             </p>
           </Link>
@@ -188,29 +189,29 @@ export default function DashboardPage() {
       </div>
 
       {/* Informações do sistema */}
-      <div className="bg-white rounded-lg border border-[#d1d5db] p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <Activity className="w-5 h-5 text-[#e87722]" />
-          <h2 className="text-lg font-semibold text-[#1e3a5f]">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 lg:p-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#e87722]" />
+          <h2 className="text-base sm:text-lg font-semibold text-[#1e3a5f]">
             Informações do Sistema
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div className="p-4 bg-[#f5f7fa] rounded-md">
-            <p className="text-[#6b7280]">Usuário conectado</p>
-            <p className="font-medium text-[#1e3a5f]">Defesa Civil</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
+          <div className="p-3 sm:p-4 bg-slate-50 rounded-lg">
+            <p className="text-xs sm:text-sm text-[#6b7280]">Usuário conectado</p>
+            <p className="font-medium text-[#1e3a5f] text-sm sm:text-base">Defesa Civil</p>
           </div>
-          <div className="p-4 bg-[#f5f7fa] rounded-md">
-            <p className="text-[#6b7280]">Data atual</p>
-            <p className="font-medium text-[#1e3a5f]">
+          <div className="p-3 sm:p-4 bg-slate-50 rounded-lg">
+            <p className="text-xs sm:text-sm text-[#6b7280]">Data atual</p>
+            <p className="font-medium text-[#1e3a5f] text-sm sm:text-base">
               {new Intl.DateTimeFormat('pt-BR', {
                 dateStyle: 'long'
               }).format(new Date())}
             </p>
           </div>
-          <div className="p-4 bg-[#f5f7fa] rounded-md">
-            <p className="text-[#6b7280]">Versão do sistema</p>
-            <p className="font-medium text-[#1e3a5f]">1.0.0</p>
+          <div className="p-3 sm:p-4 bg-slate-50 rounded-lg">
+            <p className="text-xs sm:text-sm text-[#6b7280]">Versão do sistema</p>
+            <p className="font-medium text-[#1e3a5f] text-sm sm:text-base">1.0.0</p>
           </div>
         </div>
       </div>
