@@ -19,13 +19,20 @@ export async function GET() {
     // Decodificar e validar token
     try {
       const decoded = Buffer.from(session.value, 'base64').toString('utf-8')
-      const [user] = decoded.split(':')
+      const [username] = decoded.split(':')
       
-      if (user === 'defesacivil') {
+      const VALID_USERS = [
+        { username: 'defesacivil', name: 'Defesa Civil Araruna' },
+        { username: 'nerygeisse@gmail.com', name: 'Geisse Nery' }
+      ]
+
+      const user = VALID_USERS.find(u => u.username === username)
+      
+      if (user) {
         return NextResponse.json({
           authenticated: true,
           user: {
-            name: 'Defesa Civil Araruna',
+            name: user.name,
             role: 'admin'
           }
         })

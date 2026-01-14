@@ -7,7 +7,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
 // Credenciais (hash simples para não expor diretamente)
-const VALID_USER = 'defesacivil'
+const VALID_USERS = [
+  { username: 'defesacivil', name: 'Defesa Civil Araruna' },
+  { username: 'nerygeisse@gmail.com', name: 'Geisse Nery' }
+]
+
 const VALID_PASS_HASH = '5a9b3c7d8e1f2a4b6c8d0e2f4a6b8c0d' // Hash de Araruna@123DC
 
 // Função simples de hash (para validação)
@@ -42,7 +46,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar credenciais
-    if (username !== VALID_USER || !validatePassword(password)) {
+    const user = VALID_USERS.find(u => u.username === username)
+    
+    if (!user || !validatePassword(password)) {
       return NextResponse.json(
         { success: false, message: 'Usuário ou senha incorretos' },
         { status: 401 }
@@ -50,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar token de sessão
-    const sessionToken = Buffer.from(`${VALID_USER}:${Date.now()}`).toString('base64')
+    const sessionToken = Buffer.from(`${user.username}:${Date.now()}`).toString('base64')
     
     // Definir cookie de sessão
     const cookieStore = await cookies()
@@ -66,7 +72,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Login realizado com sucesso',
       user: {
-        name: 'Defesa Civil Araruna',
+        name: user.name,
         role: 'admin'
       }
     })
