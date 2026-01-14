@@ -12,9 +12,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Loader2,
-  AlertTriangle,
-  Database
+  Loader2
 } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -37,7 +35,6 @@ export default function AgendaPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [needsSetup, setNeedsSetup] = useState(false)
   const [useLocal, setUseLocal] = useState(false)
   const [formData, setFormData] = useState({
     titulo: '',
@@ -54,12 +51,13 @@ export default function AgendaPage() {
       const response = await fetch('/api/agenda')
       const result = await response.json()
       
-      if (result.needsSetup) {
-        setNeedsSetup(true)
+      if (result.needsSetup || result.error) {
         loadFromLocalStorage()
       } else if (result.data) {
         setCompromissos(result.data)
         setUseLocal(false)
+      } else {
+        loadFromLocalStorage()
       }
     } catch (error) {
       console.error('Erro ao carregar agenda:', error)
@@ -109,28 +107,26 @@ export default function AgendaPage() {
       saveToLocalStorage(updated)
     } else {
       try {
+        let response: Response
         if (editingId) {
-          await fetch('/api/agenda', {
+          response = await fetch('/api/agenda', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: editingId, ...formData })
           })
         } else {
-          const response = await fetch('/api/agenda', {
+          response = await fetch('/api/agenda', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
           })
-          const result = await response.json()
-          if (result.data) {
-            novoCompromisso.id = result.data.id
-          }
         }
-        // Recarregar dados do banco
+        
+        if (!response.ok) throw new Error('Erro ao salvar')
+        
         await loadCompromissos()
       } catch (error) {
-        console.error('Erro ao salvar:', error)
-        // Fallback para local
+        console.error('Erro ao salvar no banco, usando local:', error)
         let updated = editingId
           ? compromissos.map(c => c.id === editingId ? novoCompromisso : c)
           : [...compromissos, novoCompromisso]
@@ -154,10 +150,11 @@ export default function AgendaPage() {
       saveToLocalStorage(updated)
     } else {
       try {
-        await fetch(`/api/agenda?id=${id}`, { method: 'DELETE' })
+        const response = await fetch(`/api/agenda?id=${id}`, { method: 'DELETE' })
+        if (!response.ok) throw new Error('Erro ao excluir')
         await loadCompromissos()
       } catch (error) {
-        console.error('Erro ao excluir:', error)
+        console.error('Erro ao excluir do banco, removendo local:', error)
         const updated = compromissos.filter(c => c.id !== id)
         setCompromissos(updated)
         saveToLocalStorage(updated)
@@ -208,37 +205,12 @@ export default function AgendaPage() {
 
   return (
     <div className="space-y-6">
-      {/* Aviso de setup */}
-      {needsSetup && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-semibold text-amber-800">Tabela não encontrada no banco</p>
-            <p className="text-amber-700 mt-1">Execute o SQL abaixo no Supabase:</p>
-            <pre className="bg-amber-100 rounded p-2 mt-2 text-xs overflow-x-auto">
-{`CREATE TABLE agenda (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  titulo VARCHAR(255) NOT NULL,
-  descricao TEXT,
-  data DATE NOT NULL,
-  hora_inicio TIME NOT NULL,
-  hora_fim TIME,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);`}
-            </pre>
-            <p className="text-amber-600 text-xs mt-2">Dados salvos localmente por enquanto.</p>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-[#1e3a5f]">Agenda Institucional</h1>
-          <p className="text-xs text-slate-500 flex items-center gap-1">
-            <Database className="w-3 h-3" />
-            {useLocal ? 'Salvando localmente' : 'Salvando no banco de dados'}
+          <p className="text-xs text-slate-500">
+            {useLocal ? 'Salvamento Local Ativo' : 'Sincronizado com Nuvem'}
           </p>
         </div>
         <button onClick={openNewModal}
