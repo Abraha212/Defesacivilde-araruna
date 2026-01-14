@@ -66,10 +66,12 @@ class ConversorNetCDF:
         self.centralizar_janela()
         
         # Variáveis
-        self.arquivo_entrada = tk.StringVar()
-        self.arquivo_saida = tk.StringVar()
-        self.status = tk.StringVar(value="Selecione um arquivo NetCDF para começar")
+        self.arquivos_entrada = []
+        self.texto_entrada = tk.StringVar(value="Nenhum arquivo selecionado")
+        self.diretorio_saida = tk.StringVar()
+        self.status = tk.StringVar(value="Selecione arquivos NetCDF (.nc) para começar")
         self.progresso = tk.DoubleVar(value=0)
+        self.progresso_total = tk.DoubleVar(value=0)
         self.processando = False
         self.cancelar = False
         
@@ -175,25 +177,25 @@ class ConversorNetCDF:
         versao_label.pack()
         
         # ═══════════════════════════════════════════════════════════
-        # CARD: ARQUIVO DE ENTRADA
+        # CARD: ARQUIVOS DE ENTRADA
         # ═══════════════════════════════════════════════════════════
         self.criar_card_arquivo(
             main_frame,
-            "📂  Arquivo NetCDF de Entrada",
-            self.arquivo_entrada,
-            self.selecionar_arquivo,
-            "Selecionar arquivo .nc"
+            "📂  Arquivos NetCDF de Entrada (Selecione 1 ou mais)",
+            self.texto_entrada,
+            self.selecionar_arquivos,
+            "Selecionar arquivos"
         )
         
         # ═══════════════════════════════════════════════════════════
-        # CARD: ARQUIVO DE SAÍDA
+        # CARD: DIRETÓRIO DE SAÍDA
         # ═══════════════════════════════════════════════════════════
         self.criar_card_arquivo(
             main_frame,
-            "💾  Arquivo CSV de Saída",
-            self.arquivo_saida,
-            self.selecionar_destino,
-            "Escolher destino"
+            "💾  Pasta de Destino para os CSVs",
+            self.diretorio_saida,
+            self.selecionar_diretorio,
+            "Escolher pasta"
         )
         
         # ═══════════════════════════════════════════════════════════
@@ -412,55 +414,56 @@ class ConversorNetCDF:
         
         return card
     
-    def selecionar_arquivo(self):
-        arquivo = filedialog.askopenfilename(
-            title="Selecione o arquivo NetCDF",
+    def selecionar_arquivos(self):
+        arquivos = filedialog.askopenfilenames(
+            title="Selecione os arquivos NetCDF",
             filetypes=[("Arquivos NetCDF", "*.nc"), ("Todos os arquivos", "*.*")]
         )
-        if arquivo:
-            self.arquivo_entrada.set(arquivo)
-            # Sugerir nome de saída
-            nome_base = Path(arquivo).stem
-            pasta = Path(arquivo).parent
-            self.arquivo_saida.set(str(pasta / f"{nome_base}.csv"))
+        if arquivos:
+            self.arquivos_entrada = list(arquivos)
+            num = len(arquivos)
+            if num == 1:
+                self.texto_entrada.set(Path(arquivos[0]).name)
+                # Sugerir pasta de saída
+                self.diretorio_saida.set(str(Path(arquivos[0]).parent))
+            else:
+                self.texto_entrada.set(f"{num} arquivos selecionados")
+                # Sugerir pasta de saída do primeiro
+                self.diretorio_saida.set(str(Path(arquivos[0]).parent))
             
-            # Mostrar tamanho do arquivo
-            tamanho_bytes = os.path.getsize(arquivo)
-            tamanho_gb = tamanho_bytes / (1024 * 1024 * 1024)
+            # Calcular tamanho total
+            tamanho_total = sum(os.path.getsize(f) for f in arquivos)
+            tamanho_gb = tamanho_total / (1024**3)
             
             if tamanho_gb >= 1:
-                self.status.set(f"✅ Arquivo selecionado: {tamanho_gb:.2f} GB")
+                self.status.set(f"✅ {num} arquivos: {tamanho_gb:.2f} GB no total")
             else:
-                tamanho_mb = tamanho_bytes / (1024 * 1024)
-                self.status.set(f"✅ Arquivo selecionado: {tamanho_mb:.0f} MB")
+                tamanho_mb = tamanho_total / (1024**2)
+                self.status.set(f"✅ {num} arquivos: {tamanho_mb:.0f} MB no total")
     
-    def selecionar_destino(self):
-        arquivo = filedialog.asksaveasfilename(
-            title="Salvar CSV como",
-            defaultextension=".csv",
-            filetypes=[("Arquivo CSV", "*.csv"), ("Todos os arquivos", "*.*")]
-        )
-        if arquivo:
-            self.arquivo_saida.set(arquivo)
+    def selecionar_diretorio(self):
+        diretorio = filedialog.askdirectory(title="Selecione a pasta de destino")
+        if diretorio:
+            self.diretorio_saida.set(diretorio)
     
     def iniciar_conversao(self):
         if not LIBS_OK:
             self.mostrar_erro_libs()
             return
         
-        entrada = self.arquivo_entrada.get()
-        saida = self.arquivo_saida.get()
+        entradas = self.arquivos_entrada
+        saida_dir = self.diretorio_saida.get()
         
-        if not entrada:
-            messagebox.showwarning("Aviso", "Selecione um arquivo NetCDF de entrada.")
+        if not entradas:
+            messagebox.showwarning("Aviso", "Selecione pelo menos um arquivo NetCDF de entrada.")
             return
         
-        if not saida:
-            messagebox.showwarning("Aviso", "Escolha o local para salvar o CSV.")
+        if not saida_dir:
+            messagebox.showwarning("Aviso", "Escolha a pasta de destino para os arquivos CSV.")
             return
         
-        if not os.path.exists(entrada):
-            messagebox.showerror("Erro", "Arquivo de entrada não encontrado.")
+        if not os.path.exists(saida_dir):
+            messagebox.showerror("Erro", "Pasta de destino não encontrada.")
             return
         
         # Iniciar conversão em thread separada
@@ -471,9 +474,114 @@ class ConversorNetCDF:
         self.progresso.set(0)
         self.progress_percent.config(text="0%")
         
-        thread = threading.Thread(target=self.converter, args=(entrada, saida))
+        thread = threading.Thread(target=self.processar_lote, args=(entradas, saida_dir))
         thread.daemon = True
         thread.start()
+    
+    def processar_lote(self, entradas, saida_dir):
+        total_arquivos = len(entradas)
+        sucessos = 0
+        erros = []
+        total_linhas_global = 0
+        
+        for idx, entrada in enumerate(entradas):
+            if self.cancelar:
+                break
+                
+            nome_arquivo = Path(entrada).name
+            saida_csv = str(Path(saida_dir) / f"{Path(entrada).stem}.csv")
+            
+            self.status.set(f"📄 Arquivo {idx+1}/{total_arquivos}: {nome_arquivo}")
+            
+            try:
+                # Progresso base para este arquivo
+                offset_progresso = (idx / total_arquivos) * 100
+                peso_arquivo = 100 / total_arquivos
+                
+                # Chamar o conversor para o arquivo individual
+                linhas = self.converter_individual(entrada, saida_csv, offset_progresso, peso_arquivo)
+                
+                if linhas > 0:
+                    sucessos += 1
+                    total_linhas_global += linhas
+                elif self.cancelar:
+                    break
+                    
+            except Exception as e:
+                erros.append(f"{nome_arquivo}: {str(e)}")
+        
+        # Finalização do lote
+        if self.cancelar:
+            self.finalizar_conversao(False, f"❌ Operação cancelada. {sucessos} arquivos convertidos.")
+        elif erros and sucessos == 0:
+            self.finalizar_conversao(False, f"❌ Falha em todos os {total_arquivos} arquivos.\nPrimeiro erro: {erros[0]}")
+        elif erros:
+            self.finalizar_conversao(True, f"⚠️ Concluído com {len(erros)} erros.\n{sucessos} arquivos convertidos com sucesso.")
+        else:
+            self.finalizar_conversao(True, f"✅ Todos os {total_arquivos} arquivos convertidos com sucesso!\nTotal de {total_linhas_global:,} linhas exportadas.")
+
+    def converter_individual(self, entrada, saida, offset, peso):
+        try:
+            self.atualizar_progresso(offset + (peso * 0.05), f"📖 Abrindo: {Path(entrada).name}")
+            
+            # Abrir dataset
+            ds = xr.open_dataset(entrada)
+            
+            if self.cancelar:
+                ds.close()
+                return 0
+            
+            # Dimensões e variáveis
+            tamanho_dim = ds.dims[list(ds.dims.keys())[0]]
+            dim_dividir = list(ds.dims.keys())[0]
+            
+            # Calcular total de pontos para decidir chunk_size
+            total_pontos = 1
+            for dim in ds.dims.values():
+                total_pontos *= dim
+                
+            if total_pontos > 50_000_000:
+                chunk_size = max(1, tamanho_dim // 200)
+            else:
+                chunk_size = max(1, tamanho_dim // 20)
+            
+            primeiro = True
+            total_linhas = 0
+            
+            for i in range(0, tamanho_dim, chunk_size):
+                if self.cancelar:
+                    ds.close()
+                    return 0
+                
+                fim = min(i + chunk_size, tamanho_dim)
+                
+                # Progresso dentro do arquivo (de 10% a 90% do peso do arquivo)
+                prog_interno = (i / tamanho_dim) * 0.8
+                self.atualizar_progresso(
+                    offset + (peso * (0.1 + prog_interno)),
+                    f"🔄 {Path(entrada).name}: {int((i/tamanho_dim)*100)}%"
+                )
+                
+                subset = ds.isel({dim_dividir: slice(i, fim)})
+                df_chunk = subset.to_dataframe().reset_index()
+                df_chunk = df_chunk.replace([np.inf, -np.inf], np.nan)
+                
+                if primeiro:
+                    df_chunk.to_csv(saida, index=False, encoding='utf-8-sig', mode='w')
+                    primeiro = False
+                else:
+                    df_chunk.to_csv(saida, index=False, encoding='utf-8-sig', mode='a', header=False)
+                
+                total_linhas += len(df_chunk)
+                del df_chunk
+                gc.collect()
+            
+            ds.close()
+            gc.collect()
+            return total_linhas
+            
+        except Exception as e:
+            raise e
     
     def cancelar_conversao(self):
         if self.processando:
@@ -485,131 +593,6 @@ class ConversorNetCDF:
         self.progress_percent.config(text=f"{int(valor)}%")
         self.status.set(mensagem)
         self.root.update_idletasks()
-    
-    def converter(self, entrada, saida):
-        try:
-            self.atualizar_progresso(5, "📖 Abrindo arquivo NetCDF...")
-            
-            # Abrir dataset
-            ds = xr.open_dataset(entrada)
-            
-            if self.cancelar:
-                ds.close()
-                self.finalizar_conversao(False, "❌ Conversão cancelada pelo usuário.")
-                return
-            
-            # Informações do arquivo
-            dims = dict(ds.dims)
-            vars_list = list(ds.data_vars)
-            
-            self.atualizar_progresso(10, f"📋 Variáveis encontradas: {', '.join(vars_list[:5])}...")
-            
-            # Calcular tamanho total
-            total_pontos = 1
-            for dim in ds.dims.values():
-                total_pontos *= dim
-            
-            self.atualizar_progresso(15, f"📊 Total de pontos de dados: {total_pontos:,}")
-            
-            # Identificar dimensão para dividir (geralmente tempo)
-            dim_dividir = list(ds.dims.keys())[0]
-            tamanho_dim = ds.dims[dim_dividir]
-            
-            # Tamanho do chunk baseado no número de pontos
-            if total_pontos > 100_000_000:  # > 100M pontos
-                chunk_size = max(1, tamanho_dim // 1000)
-            elif total_pontos > 10_000_000:  # > 10M pontos
-                chunk_size = max(1, tamanho_dim // 100)
-            else:
-                chunk_size = max(1, tamanho_dim // 10)
-            
-            self.atualizar_progresso(20, f"⚙️ Processando em blocos de {chunk_size} registros...")
-            
-            primeiro = True
-            total_linhas = 0
-            
-            for i in range(0, tamanho_dim, chunk_size):
-                if self.cancelar:
-                    ds.close()
-                    self.finalizar_conversao(False, "❌ Conversão cancelada pelo usuário.")
-                    return
-                
-                fim = min(i + chunk_size, tamanho_dim)
-                progresso_atual = 20 + (i / tamanho_dim) * 70
-                
-                percentual = int((i / tamanho_dim) * 100)
-                self.atualizar_progresso(
-                    progresso_atual,
-                    f"🔄 Processando bloco {i+1:,} a {fim:,} de {tamanho_dim:,} ({percentual}%)"
-                )
-                
-                # Selecionar subset
-                subset = ds.isel({dim_dividir: slice(i, fim)})
-                
-                try:
-                    # Converter para DataFrame
-                    df_chunk = subset.to_dataframe().reset_index()
-                    df_chunk = df_chunk.replace([np.inf, -np.inf], np.nan)
-                    
-                    # Salvar no CSV
-                    if primeiro:
-                        df_chunk.to_csv(saida, index=False, encoding='utf-8-sig', mode='w')
-                        primeiro = False
-                    else:
-                        df_chunk.to_csv(saida, index=False, encoding='utf-8-sig', mode='a', header=False)
-                    
-                    total_linhas += len(df_chunk)
-                    del df_chunk
-                    gc.collect()
-                    
-                except MemoryError:
-                    self.atualizar_progresso(progresso_atual, "⚠️ Memória baixa, usando blocos menores...")
-                    
-                    # Tentar com chunks menores
-                    for j in range(i, fim, max(1, chunk_size // 10)):
-                        if self.cancelar:
-                            ds.close()
-                            self.finalizar_conversao(False, "❌ Conversão cancelada.")
-                            return
-                        
-                        fim_menor = min(j + max(1, chunk_size // 10), fim)
-                        subset_menor = ds.isel({dim_dividir: slice(j, fim_menor)})
-                        df_mini = subset_menor.to_dataframe().reset_index()
-                        df_mini = df_mini.replace([np.inf, -np.inf], np.nan)
-                        
-                        if primeiro:
-                            df_mini.to_csv(saida, index=False, encoding='utf-8-sig', mode='w')
-                            primeiro = False
-                        else:
-                            df_mini.to_csv(saida, index=False, encoding='utf-8-sig', mode='a', header=False)
-                        
-                        total_linhas += len(df_mini)
-                        del df_mini
-                        gc.collect()
-            
-            ds.close()
-            gc.collect()
-            
-            self.atualizar_progresso(95, "📝 Finalizando arquivo...")
-            
-            # Tamanho do arquivo de saída
-            tamanho_saida_bytes = os.path.getsize(saida)
-            tamanho_saida_mb = tamanho_saida_bytes / (1024 * 1024)
-            
-            if tamanho_saida_mb >= 1024:
-                tamanho_str = f"{tamanho_saida_mb/1024:.2f} GB"
-            else:
-                tamanho_str = f"{tamanho_saida_mb:.1f} MB"
-            
-            self.finalizar_conversao(
-                True, 
-                f"✅ Conversão concluída com sucesso!\n"
-                f"📊 {total_linhas:,} linhas exportadas\n"
-                f"💾 Tamanho: {tamanho_str}"
-            )
-            
-        except Exception as e:
-            self.finalizar_conversao(False, f"❌ Erro: {str(e)}")
     
     def finalizar_conversao(self, sucesso, mensagem):
         self.processando = False
@@ -623,7 +606,7 @@ class ConversorNetCDF:
             self.label_status.config(fg=CORES['success'])
             self.root.after(100, lambda: messagebox.showinfo(
                 "Sucesso! 🎉", 
-                f"{mensagem}\n\nArquivo salvo em:\n{self.arquivo_saida.get()}"
+                f"{mensagem}\n\nArquivos salvos em:\n{self.diretorio_saida.get()}"
             ))
         else:
             self.label_status.config(fg=CORES['error'])

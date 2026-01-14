@@ -501,10 +501,10 @@ export default function ConversorPage() {
             <div className="bg-slate-50 rounded-xl p-4 mb-4">
               <h4 className="font-bold text-[#1e3a5f] mb-2">✅ Vantagens:</h4>
               <ul className="text-slate-600 text-sm space-y-1 list-disc list-inside">
-                <li>Processa arquivos de qualquer tamanho</li>
+                <li>Processa vários arquivos de uma vez (Lote)</li>
+                <li>Sem limite de tamanho (3GB, 10GB+)</li>
                 <li>Sem limite de tempo</li>
                 <li>Funciona offline</li>
-                <li>Otimizado para memória</li>
               </ul>
             </div>
 

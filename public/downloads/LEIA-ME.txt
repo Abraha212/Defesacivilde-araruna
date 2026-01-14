@@ -43,8 +43,8 @@ COMO USAR:
 Opção 1 - Interface Gráfica:
    - Dê duplo clique no arquivo "conversor_desktop.py"
    - Ou execute: python conversor_desktop.py
-   - Selecione o arquivo .nc de entrada
-   - Escolha onde salvar o CSV
+   - Selecione os arquivos .nc (você pode escolher 1 ou vários)
+   - Escolha a pasta de destino para os CSVs
    - Clique em "CONVERTER"
 
 Opção 2 - Linha de Comando:
