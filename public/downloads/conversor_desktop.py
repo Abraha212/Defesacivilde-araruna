@@ -78,6 +78,7 @@ class ConversorNetCDF:
         self.processando = False
         self.cancelar = False
         self.unificar_csv = tk.BooleanVar(value=False)
+        self.gerar_resumo = tk.BooleanVar(value=True)
         
         # Configurar estilo
         self.configurar_estilo()
@@ -218,7 +219,21 @@ class ConversorNetCDF:
             selectcolor=CORES['bg_secundario'],
             cursor="hand2"
         )
-        self.check_unificar.pack(side="left")
+        self.check_unificar.pack(side="left", padx=(0, 20))
+        
+        self.check_resumo = tk.Checkbutton(
+            opcoes_frame,
+            text="Gerar resumo de média anual",
+            variable=self.gerar_resumo,
+            font=("Segoe UI", 11),
+            bg=CORES['bg_principal'],
+            fg=CORES['texto'],
+            activebackground=CORES['bg_principal'],
+            activeforeground=CORES['accent'],
+            selectcolor=CORES['bg_secundario'],
+            cursor="hand2"
+        )
+        self.check_resumo.pack(side="left")
         
         # ═══════════════════════════════════════════════════════════
         # CARD: PROGRESSO
@@ -513,6 +528,10 @@ class ConversorNetCDF:
         erros = []
         total_linhas_global = 0
         unificar = self.unificar_csv.get()
+        gerar_resumo = self.gerar_resumo.get()
+        
+        # Estatísticas para resumo anual
+        estatisticas_globais = None
         
         # Se unificar, definir o arquivo único de saída
         arquivo_unico = None
@@ -544,23 +563,44 @@ class ConversorNetCDF:
                 peso_arquivo = 100 / total_arquivos
                 
                 # Chamar o conversor para o arquivo individual
-                linhas = self.converter_individual(
+                resultado = self.converter_individual(
                     entrada, 
                     saida_csv, 
                     offset_progresso, 
                     peso_arquivo, 
                     append=modo_unificado and not escrever_header,
-                    write_header=escrever_header
+                    write_header=escrever_header,
+                    calcular_stats=gerar_resumo
                 )
+                
+                linhas = resultado['linhas']
+                stats_arquivo = resultado['stats']
                 
                 if linhas > 0:
                     sucessos += 1
                     total_linhas_global += linhas
+                    
+                    # Acumular estatísticas
+                    if gerar_resumo and stats_arquivo is not None:
+                        if estatisticas_globais is None:
+                            estatisticas_globais = stats_arquivo
+                        else:
+                            # Somar os dataframes de estatísticas
+                            estatisticas_globais = estatisticas_globais.add(stats_arquivo, fill_value=0)
+                        
+                        # Se não for unificado, salvar resumo individual
+                        if not unificar:
+                            self.salvar_resumo(stats_arquivo, str(Path(saida_dir) / f"{Path(entrada).stem}_resumo_anual.csv"))
+                
                 elif self.cancelar:
                     break
                     
             except Exception as e:
                 erros.append(f"{nome_arquivo}: {str(e)}")
+        
+        # Se for unificado e tiver estatísticas, salvar resumo global
+        if gerar_resumo and unificar and estatisticas_globais is not None:
+            self.salvar_resumo(estatisticas_globais, str(Path(saida_dir) / f"NetCDF_Unificado_resumo_anual.csv"))
         
         # Finalização do lote
         if self.cancelar:
@@ -578,9 +618,13 @@ class ConversorNetCDF:
                 msg += f"\n📄 Arquivo unificado gerado com {total_linhas_global:,} linhas."
             else:
                 msg += f"\n📊 Total de {total_linhas_global:,} linhas exportadas."
+            
+            if self.gerar_resumo.get():
+                msg += f"\n📈 Resumos de média anual também foram gerados."
+                
             self.finalizar_conversao(True, msg)
-
-    def converter_individual(self, entrada, saida, offset, peso, append=False, write_header=True):
+        
+    def converter_individual(self, entrada, saida, offset, peso, append=False, write_header=True, calcular_stats=False):
         try:
             self.atualizar_progresso(offset + (peso * 0.05), f"📖 Abrindo: {Path(entrada).name}")
             
@@ -589,7 +633,7 @@ class ConversorNetCDF:
             
             if self.cancelar:
                 ds.close()
-                return 0
+                return {'linhas': 0, 'stats': None}
             
             # Dimensões e variáveis
             dim_dividir = list(ds.dims.keys())[0]
@@ -609,11 +653,15 @@ class ConversorNetCDF:
             # Se for modo normal ou o primeiro arquivo da unificação, 'primeiro' é write_header
             primeiro_bloco = write_header
             total_linhas = 0
+            df_stats = None
+            
+            # Identificar variável de precipitação
+            var_precip = 'pr' if 'pr' in ds.data_vars else list(ds.data_vars.keys())[0]
             
             for i in range(0, tamanho_dim, chunk_size):
                 if self.cancelar:
                     ds.close()
-                    return 0
+                    return {'linhas': 0, 'stats': None}
                 
                 fim = min(i + chunk_size, tamanho_dim)
                 
@@ -627,6 +675,33 @@ class ConversorNetCDF:
                 subset = ds.isel({dim_dividir: slice(i, fim)})
                 df_chunk = subset.to_dataframe().reset_index()
                 df_chunk = df_chunk.replace([np.inf, -np.inf], np.nan)
+                
+                # Calcular estatísticas se solicitado
+                if calcular_stats:
+                    try:
+                        # Extrair ano da coluna de tempo (ajustar se o nome for diferente)
+                        col_tempo = 'time' if 'time' in df_chunk.columns else df_chunk.columns[0]
+                        # Garantir que é datetime
+                        df_chunk[col_tempo] = pd.to_datetime(df_chunk[col_tempo])
+                        
+                        # Agrupar por ano, lat e lon
+                        # Nota: latitude e longitude podem ter nomes diferentes
+                        col_lat = 'latitude' if 'latitude' in df_chunk.columns else ('lat' if 'lat' in df_chunk.columns else None)
+                        col_lon = 'longitude' if 'longitude' in df_chunk.columns else ('lon' if 'lon' in df_chunk.columns else None)
+                        
+                        agrupadores = [df_chunk[col_tempo].dt.year]
+                        if col_lat: agrupadores.append(col_lat)
+                        if col_lon: agrupadores.append(col_lon)
+                        
+                        # Calcular soma e contagem para média posterior
+                        chunk_stats = df_chunk.groupby(agrupadores)[var_precip].agg(['sum', 'count'])
+                        
+                        if df_stats is None:
+                            df_stats = chunk_stats
+                        else:
+                            df_stats = df_stats.add(chunk_stats, fill_value=0)
+                    except Exception as e:
+                        print(f"Aviso: Erro ao calcular estatísticas no chunk: {e}")
                 
                 # Definir modo de escrita
                 # Se for o primeiro bloco de um novo arquivo ou o primeiro bloco da unificação
@@ -644,10 +719,34 @@ class ConversorNetCDF:
             
             ds.close()
             gc.collect()
-            return total_linhas
+            return {'linhas': total_linhas, 'stats': df_stats}
             
         except Exception as e:
             raise e
+    
+    def salvar_resumo(self, df_stats, caminho_saida):
+        """Calcula a média final e salva o resumo em CSV"""
+        try:
+            if df_stats is None:
+                return
+            
+            # Calcular a média: sum / count
+            resumo = df_stats.copy()
+            resumo['media_anual'] = resumo['sum'] / resumo['count']
+            
+            # Resetar index para transformar agrupadores em colunas
+            resumo = resumo.reset_index()
+            
+            # Renomear colunas amigáveis
+            colunas = list(resumo.columns)
+            if 'time' in colunas: resumo = resumo.rename(columns={'time': 'ano'})
+            if 'sum' in colunas: resumo = resumo.rename(columns={'sum': 'precipitacao_acumulada_anual'})
+            
+            # Salvar
+            resumo.to_csv(caminho_saida, index=False, encoding='utf-8-sig')
+            
+        except Exception as e:
+            print(f"Erro ao salvar resumo: {e}")
     
     def cancelar_conversao(self):
         if self.processando:

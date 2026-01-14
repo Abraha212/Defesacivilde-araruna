@@ -45,7 +45,9 @@ Opção 1 - Interface Gráfica:
    - Ou execute: python conversor_desktop.py
    - Selecione os arquivos .nc (você pode escolher 1 ou vários)
    - Escolha a pasta de destino para os CSVs
-   - (Novo) Se desejar, marque a opção de unificar todos em um único arquivo
+   - (Novo) Opções extras:
+      * Unificar todos em um único arquivo CSV
+      * Calcular média anual automaticamente (Gera um CSV de resumo)
    - Clique em "CONVERTER"
 
 Opção 2 - Linha de Comando:

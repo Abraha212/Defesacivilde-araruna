@@ -502,8 +502,9 @@ export default function ConversorPage() {
               <h4 className="font-bold text-[#1e3a5f] mb-2">✅ Vantagens:</h4>
               <ul className="text-slate-600 text-sm space-y-1 list-disc list-inside">
                 <li>Processa vários arquivos de uma vez (Lote)</li>
+                <li>Unifica vários arquivos em um único CSV</li>
+                <li>Cálculo automático de média anual (Resumo)</li>
                 <li>Sem limite de tamanho (3GB, 10GB+)</li>
-                <li>Sem limite de tempo</li>
                 <li>Funciona offline</li>
               </ul>
             </div>
