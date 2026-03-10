@@ -473,12 +473,7 @@ export default function ConversorPage() {
                 </div>
                 <ul className="list-disc list-inside space-y-1 ml-1">
                   <li>Limite online: 50MB por arquivo</li>
-                  <li>Para arquivos maiores: use o Software Desktop</li>
-                  <li>
-                    <a href="https://www.python.org/downloads/" target="_blank" rel="noopener noreferrer" className="text-[#e87722] hover:underline">
-                      Baixe o Python
-                    </a> se necessário
-                  </li>
+                  <li>Para arquivos maiores: baixe o Software Desktop</li>
                 </ul>
               </div>
             </div>
@@ -499,52 +494,40 @@ export default function ConversorPage() {
             </div>
 
             <div className="bg-slate-50 rounded-xl p-4 mb-4">
-              <h4 className="font-bold text-[#1e3a5f] mb-2">✅ Vantagens:</h4>
+              <h4 className="font-bold text-[#1e3a5f] mb-2">Vantagens:</h4>
               <ul className="text-slate-600 text-sm space-y-1 list-disc list-inside">
                 <li>Processa vários arquivos de uma vez (Lote)</li>
                 <li>Unifica vários arquivos em um único CSV</li>
                 <li>Cálculo automático de média anual (Resumo)</li>
                 <li>Sem limite de tamanho (3GB, 10GB+)</li>
                 <li>Funciona offline</li>
+                <li>Não precisa instalar nada</li>
               </ul>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-amber-800 flex-1">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-emerald-800">
                 <strong>Requisitos:</strong>
                 <ul className="mt-1 list-disc list-inside">
                   <li>Windows 10/11</li>
-                  <li>Python 3.10+ instalado</li>
                 </ul>
-                <a 
-                  href="https://www.python.org/downloads/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-2 text-[#1e3a5f] font-bold hover:underline"
-                >
-                  <Download className="w-3 h-3" />
-                  Não tem Python? Baixe aqui
-                </a>
+                <p className="mt-2 text-emerald-600">Basta baixar e executar!</p>
               </div>
             </div>
 
-            <div className="bg-[#1e3a5f] rounded-xl p-4 mb-6">
-              <p className="text-white/70 text-xs mb-2">Instale as dependências:</p>
-              <code className="text-[#e87722] text-sm">pip install xarray netcdf4 pandas numpy</code>
+            <div className="flex gap-3">
+              <a href="/downloads/ConversorNetCDF-DefesaCivil.exe" download
+                className="flex-1 py-4 bg-[#e87722] text-white rounded-xl font-bold text-center hover:bg-[#d06a1a] transition-colors flex items-center justify-center gap-2 text-lg">
+                <Download className="w-6 h-6" />
+                Baixar Conversor
+              </a>
             </div>
 
-            <div className="flex gap-3">
-              <a href="/downloads/conversor_desktop.py" download
-                className="flex-1 py-3 bg-[#1e3a5f] text-white rounded-xl font-bold text-center hover:bg-[#0f2744] transition-colors flex items-center justify-center gap-2">
-                <Download className="w-5 h-5" />
-                Baixar Script
-              </a>
-              <button onClick={() => setShowDesktopModal(false)}
-                className="py-3 px-6 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">
-                Fechar
-              </button>
-            </div>
+            <button onClick={() => setShowDesktopModal(false)}
+              className="w-full mt-3 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">
+              Fechar
+            </button>
 
             <p className="text-center text-xs text-slate-400 mt-4">
               Desenvolvido por <span className="text-[#e87722] font-medium">Abraham Câmara</span>
