@@ -1,8 +1,23 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileSpreadsheet, Calendar, FileText, Activity, Quote, Lightbulb } from 'lucide-react'
+import { FileSpreadsheet, Calendar, FileText, Activity, Quote, Lightbulb, CloudSun } from 'lucide-react'
 import Link from 'next/link'
+
+const API_KEY = 'bc0cece113b11c16542b1debc26da0c6'
+const CITY    = 'Araruna,BR'
+
+function weatherEmoji(id: number): string {
+  if (id >= 200 && id < 300) return '⛈️'
+  if (id >= 300 && id < 400) return '🌦️'
+  if (id >= 500 && id < 600) return '🌧️'
+  if (id >= 600 && id < 700) return '❄️'
+  if (id >= 700 && id < 800) return '🌫️'
+  if (id === 800)             return '☀️'
+  if (id === 801)             return '🌤️'
+  if (id === 802)             return '⛅'
+  return '☁️'
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +39,22 @@ const frasesMotivacionais = [
 export default function DashboardPage() {
   const [fraseAtual, setFraseAtual] = useState(0)
   const [fadeIn, setFadeIn] = useState(true)
+  const [weather, setWeather] = useState<{ temp: number; id: number; desc: string; humidity: number; wind: number } | null>(null)
+
+  useEffect(() => {
+    fetch(`https://api.openweathermap.org/data/2.5/weather?q=${CITY}&appid=${API_KEY}&units=metric&lang=pt_br`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) setWeather({
+          temp: Math.round(d.main.temp),
+          id: d.weather[0].id,
+          desc: d.weather[0].description,
+          humidity: d.main.humidity,
+          wind: Math.round(d.wind.speed * 3.6),
+        })
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -37,10 +68,11 @@ export default function DashboardPage() {
   }, [])
 
   const cards = [
-    { title: 'Conversor NetCDF', description: 'Converta arquivos .nc para CSV', icon: FileSpreadsheet, href: '/dashboard/conversor' },
-    { title: 'Agenda', description: 'Gerencie seus compromissos', icon: Calendar, href: '/dashboard/agenda' },
-    { title: 'Memorandos', description: 'Controle de memorandos', icon: FileText, href: '/dashboard/memorandos' },
-    { title: 'Sugestões', description: 'Envie suas ideias', icon: Lightbulb, href: '/dashboard/sugestoes' },
+    { title: 'Conversor NetCDF',   description: 'Converta arquivos .nc para CSV',  icon: FileSpreadsheet, href: '/dashboard/conversor' },
+    { title: 'Previsão do Tempo',  description: 'Clima de Araruna/PB',              icon: CloudSun,        href: '/dashboard/previsao-tempo' },
+    { title: 'Agenda',             description: 'Gerencie seus compromissos',       icon: Calendar,        href: '/dashboard/agenda' },
+    { title: 'Memorandos',         description: 'Controle de memorandos',           icon: FileText,        href: '/dashboard/memorandos' },
+    { title: 'Sugestões',          description: 'Envie suas ideias',                icon: Lightbulb,       href: '/dashboard/sugestoes' },
   ]
 
   const frase = frasesMotivacionais[fraseAtual]
@@ -76,6 +108,22 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Card Clima */}
+      {weather && (
+        <Link href="/dashboard/previsao-tempo"
+          className="flex items-center gap-4 bg-white border border-slate-200 rounded-xl p-4 hover:border-[#1e3a5f] hover:shadow-sm transition-all">
+          <span className="text-5xl leading-none">{weatherEmoji(weather.id)}</span>
+          <div className="flex-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-[#1e3a5f]">{weather.temp}°C</span>
+              <span className="text-slate-500 text-sm capitalize">{weather.desc}</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">Araruna, PB · Umidade {weather.humidity}% · Vento {weather.wind} km/h</p>
+          </div>
+          <span className="text-xs text-[#e87722] font-medium hidden sm:block">Ver previsão →</span>
+        </Link>
+      )}
 
       {/* Saudação */}
       <div>
