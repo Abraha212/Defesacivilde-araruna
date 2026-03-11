@@ -1,7 +1,7 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
 ║   CONVERSOR NETCDF  v3.0                                         ║
-║   Prefeitura Municipal de Araruna / PB                           ║
+║                                                                  ║
 ║   By: Offnen Soluções e Desenvolvimento                          ║
 ║                                                                  ║
 ║   Formatos de saída: CSV  |  Excel (XLSX)  |  XML                ║
@@ -216,7 +216,7 @@ class ConversorApp:
                  bg=C['accent'], fg='white').pack(side='left', padx=(20, 8))
         tk.Label(topbar, text='CONVERSOR NETCDF',
                  font=('Segoe UI', 17, 'bold'), bg=C['accent'], fg='white').pack(side='left')
-        tk.Label(topbar, text='Prefeitura de Araruna / PB',
+        tk.Label(topbar, text='By: Offnen Soluções e Desenvolvimento',
                  font=('Segoe UI', 10), bg=C['accent'], fg='#ffe4c4').pack(side='left', padx=14)
 
         # Badge versão
@@ -406,7 +406,7 @@ class ConversorApp:
         footer = tk.Frame(self.left, bg=C['border'], height=30)
         footer.pack(fill='x', side='bottom')
         footer.pack_propagate(False)
-        tk.Label(footer, text='By: Offnen Soluções e Desenvolvimento  •  Prefeitura de Araruna/PB',
+        tk.Label(footer, text='By: Offnen Soluções e Desenvolvimento',
                  font=('Segoe UI', 8), fg=C['txt2'], bg=C['border']
                  ).place(relx=0.5, rely=0.5, anchor='center')
 
