@@ -13,7 +13,7 @@ interface Memorando {
 }
 
 export default function MemorandosPage() {
-  const [memorandos, setMemorandos] = useState<Memorando[]>([])
+  const [memorandos, setMemorandos] = useState<Memorando[]>([] as Memorando[])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'todos' | 'pendente' | 'concluido'>('todos')
   const [saving, setSaving] = useState<number | null>(null)
@@ -32,10 +32,10 @@ export default function MemorandosPage() {
         loadFromLocalStorage()
       } else if (result.data) {
         // Preencher os números que faltam (1-100)
-        const existing = new Map(result.data.map((m: Memorando) => [m.numero, m]))
-        const full: Memorando[] = Array.from({ length: 100 }, (_, i) => {
+        const existing = new Map<number, Memorando>(result.data.map((m: Memorando) => [m.numero, m]))
+        const full: Memorando[] = Array.from({ length: 100 }, (_, i): Memorando => {
           const num = i + 1
-          return existing.get(num) || {
+          return existing.get(num) ?? {
             id: `memo-${num}`,
             numero: num,
             status: 'pendente' as const,
