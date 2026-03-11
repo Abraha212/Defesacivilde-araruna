@@ -2,7 +2,7 @@
 chcp 65001 >nul 2>&1
 echo ============================================
 echo   GERANDO EXECUTAVEL - Conversor NetCDF
-echo   Defesa Civil Araruna
+echo   Prefeitura de Araruna/PB
 echo ============================================
 echo.
 
@@ -32,6 +32,7 @@ call venv\Scripts\activate.bat
 :: Instalar dependências
 echo [1/4] Instalando dependencias...
 pip install -r requirements-desktop.txt --quiet
+pip install Pillow --quiet
 
 :: Instalar PyInstaller se necessário
 pip show pyinstaller >nul 2>&1
@@ -40,14 +41,26 @@ if errorlevel 1 (
     pip install pyinstaller
 )
 
+:: Gerar ícone
+echo [2/4] Gerando icone do software...
+python criar_icone.py
+if not exist "icon.ico" (
+    echo [AVISO] Icone nao gerado, continuando sem icone...
+)
+echo.
+
 :: Gerar executável
-echo [2/4] Gerando executavel...
+echo [3/4] Gerando executavel...
 echo Isso pode demorar alguns minutos...
 echo.
 
+set ICON_FLAG=
+if exist "icon.ico" set ICON_FLAG=--icon=icon.ico
+
 pyinstaller --onefile ^
     --windowed ^
-    --name "ConversorNetCDF-DefesaCivil" ^
+    --name "ConversorNetCDF" ^
+    %ICON_FLAG% ^
     --hidden-import=xarray ^
     --hidden-import=xarray.backends ^
     --hidden-import=xarray.backends.netCDF4_ ^
@@ -121,7 +134,7 @@ if errorlevel 1 (
 
     pyinstaller --onefile ^
         --windowed ^
-        --name "ConversorNetCDF-DefesaCivil" ^
+        --name "ConversorNetCDF" ^
         --hidden-import=xarray ^
         --hidden-import=netCDF4 ^
         --hidden-import=cftime ^
@@ -135,31 +148,31 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/4] Verificando executavel...
+echo [4/4] Verificando executavel...
 
-if not exist "dist\ConversorNetCDF-DefesaCivil.exe" (
+if not exist "dist\ConversorNetCDF.exe" (
     echo [ERRO] Executavel nao encontrado em dist\
     pause
     exit /b 1
 )
 
 :: Mostrar tamanho do arquivo
-for %%A in ("dist\ConversorNetCDF-DefesaCivil.exe") do (
+for %%A in ("dist\ConversorNetCDF.exe") do (
     set "size=%%~zA"
     echo Tamanho do executavel: %%~zA bytes
 )
 
 echo.
-echo [4/4] Copiando para pasta de downloads...
+echo [5/5] Copiando para pasta de downloads...
 
 :: Copiar para pasta de download
 if not exist "..\public\downloads" mkdir "..\public\downloads"
-copy "dist\ConversorNetCDF-DefesaCivil.exe" "..\public\downloads\" >nul 2>&1
+copy "dist\ConversorNetCDF.exe" "..\public\downloads\" >nul 2>&1
 
 echo.
 echo ============================================
 echo   EXECUTAVEL GERADO COM SUCESSO!
-echo   Arquivo: dist\ConversorNetCDF-DefesaCivil.exe
+echo   Arquivo: dist\ConversorNetCDF.exe
 echo ============================================
 echo.
 echo O executavel esta pronto para uso.
