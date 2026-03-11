@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from('kanban_colunas')
-      .insert({ titulo, cor: cor || '#1e3a5f', ordem: ordem ?? 0 })
+      .insert({ titulo, cor: cor ?? '#1e3a5f', ordem: ordem ?? 0 })
       .select()
       .single()
 
