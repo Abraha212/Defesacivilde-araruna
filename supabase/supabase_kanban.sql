@@ -1,14 +1,5 @@
--- =====================================================
--- KANBAN - ORGANIZAÇÃO E TAREFAS
--- Cole e execute este script no SQL Editor do Supabase
--- =====================================================
-
--- Habilitar extensão UUID (já deve existir, mas por segurança)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- =====================================================
--- TABELA: KANBAN_COLUNAS
--- =====================================================
 CREATE TABLE IF NOT EXISTS public.kanban_colunas (
     id          UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -44,17 +35,14 @@ CREATE POLICY "kanban_colunas_delete"
     ON public.kanban_colunas FOR DELETE
     USING (auth.uid() = user_id);
 
--- =====================================================
--- TABELA: KANBAN_CARDS
--- =====================================================
 CREATE TABLE IF NOT EXISTS public.kanban_cards (
     id          UUID        DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     coluna_id   UUID        NOT NULL REFERENCES public.kanban_colunas(id) ON DELETE CASCADE,
     titulo      VARCHAR(255) NOT NULL,
     descricao   TEXT,
-    etiquetas   JSONB        NOT NULL DEFAULT '[]',   -- ex: ["critico", "urgente"]
-    imagem      TEXT,                                  -- base64 ou URL
+    etiquetas   JSONB        NOT NULL DEFAULT '[]',
+    imagem      TEXT,
     ordem       INTEGER      NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ  DEFAULT NOW(),
     updated_at  TIMESTAMPTZ  DEFAULT NOW()
@@ -86,10 +74,14 @@ CREATE POLICY "kanban_cards_delete"
     ON public.kanban_cards FOR DELETE
     USING (auth.uid() = user_id);
 
--- =====================================================
--- TRIGGERS: atualizar updated_at automaticamente
--- (a função update_updated_at_column já existe no schema principal)
--- =====================================================
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 DROP TRIGGER IF EXISTS update_kanban_colunas_updated_at ON public.kanban_colunas;
 CREATE TRIGGER update_kanban_colunas_updated_at
     BEFORE UPDATE ON public.kanban_colunas
@@ -99,11 +91,3 @@ DROP TRIGGER IF EXISTS update_kanban_cards_updated_at ON public.kanban_cards;
 CREATE TRIGGER update_kanban_cards_updated_at
     BEFORE UPDATE ON public.kanban_cards
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- =====================================================
--- COMENTÁRIOS
--- =====================================================
-COMMENT ON TABLE public.kanban_colunas IS 'Colunas do quadro Kanban (Organização e Tarefas)';
-COMMENT ON TABLE public.kanban_cards   IS 'Cartões do Kanban com etiquetas, descrição e imagem';
-
--- FIM
