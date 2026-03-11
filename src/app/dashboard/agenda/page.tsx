@@ -2,378 +2,437 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback } from 'react'
-import { 
-  Plus, 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Trash2, 
-  Edit2, 
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Loader2
+import { useState, useEffect, useRef } from 'react'
+import {
+  Plus, X, Edit2, Trash2, Image as ImageIcon, Tag, MoreHorizontal, GripVertical, Check
 } from 'lucide-react'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 
-interface Compromisso {
+// ── Tipos ─────────────────────────────────────────────────────────────────
+interface Label {
   id: string
-  titulo: string
-  descricao: string | null
-  data: string
-  hora_inicio: string
-  hora_fim: string | null
-  created_at: string
+  name: string
+  color: string
+  textColor: string
 }
 
-export default function AgendaPage() {
-  const [compromissos, setCompromissos] = useState<Compromisso[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [showModal, setShowModal] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [useLocal, setUseLocal] = useState(false)
-  const [formData, setFormData] = useState({
-    titulo: '',
-    descricao: '',
-    data: format(new Date(), 'yyyy-MM-dd'),
-    hora_inicio: '09:00',
-    hora_fim: '',
-  })
+interface Card {
+  id: string
+  title: string
+  description: string
+  labels: string[]
+  image?: string
+  createdAt: string
+}
 
-  const loadCompromissos = useCallback(async () => {
-    setLoading(true)
-    
-    try {
-      const response = await fetch('/api/agenda')
-      const result = await response.json()
-      
-      if (result.needsSetup || result.error) {
-        loadFromLocalStorage()
-      } else if (result.data) {
-        setCompromissos(result.data)
-        setUseLocal(false)
-      } else {
-        loadFromLocalStorage()
-      }
-    } catch (error) {
-      console.error('Erro ao carregar agenda:', error)
-      loadFromLocalStorage()
-    }
-    
-    setLoading(false)
+interface Column {
+  id: string
+  title: string
+  color: string
+  cards: Card[]
+}
+
+// ── Etiquetas padrão ───────────────────────────────────────────────────────
+const DEFAULT_LABELS: Label[] = [
+  { id: 'critico',    name: 'Crítico',          color: '#ef4444', textColor: '#fff' },
+  { id: 'urgente',    name: 'Urgente',          color: '#f97316', textColor: '#fff' },
+  { id: 'normal',     name: 'Normal',           color: '#3b82f6', textColor: '#fff' },
+  { id: 'baixa',      name: 'Baixa Prioridade', color: '#22c55e', textColor: '#fff' },
+  { id: 'revisao',    name: 'Revisão',          color: '#8b5cf6', textColor: '#fff' },
+  { id: 'aguardando', name: 'Aguardando',       color: '#eab308', textColor: '#000' },
+]
+
+const COL_COLORS = ['#1e3a5f','#0891b2','#7c3aed','#059669','#dc2626','#d97706','#db2777']
+
+// ── Colunas iniciais ───────────────────────────────────────────────────────
+const INITIAL_COLUMNS: Column[] = [
+  { id: 'col-1', title: 'A Fazer',       color: '#1e3a5f', cards: [] },
+  { id: 'col-2', title: 'Em Andamento',  color: '#d97706', cards: [] },
+  { id: 'col-3', title: 'Concluído',     color: '#059669', cards: [] },
+]
+
+const STORAGE_KEY = 'kanban_tarefas_v1'
+
+function uid() { return `id-${Date.now()}-${Math.random().toString(36).slice(2)}` }
+
+// ── Componente principal ───────────────────────────────────────────────────
+export default function KanbanPage() {
+  const [columns, setColumns] = useState<Column[]>([])
+  const [dragging, setDragging] = useState<{ cardId: string; fromCol: string } | null>(null)
+  const [dragOver, setDragOver] = useState<string | null>(null)
+
+  // Modais
+  const [cardModal, setCardModal] = useState<{ colId: string; card?: Card } | null>(null)
+  const [colModal, setColModal]   = useState<{ col?: Column } | null>(null)
+  const [colMenuOpen, setColMenuOpen] = useState<string | null>(null)
+
+  // Form do cartão
+  const [form, setForm] = useState({ title: '', description: '', labels: [] as string[], image: '' })
+  const imgRef = useRef<HTMLInputElement>(null)
+
+  // ── Persistência ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    setColumns(saved ? JSON.parse(saved) : INITIAL_COLUMNS)
   }, [])
 
-  const loadFromLocalStorage = () => {
-    const saved = localStorage.getItem('agenda_defesacivil')
-    if (saved) {
-      setCompromissos(JSON.parse(saved))
-    }
-    setUseLocal(true)
+  const save = (cols: Column[]) => {
+    setColumns(cols)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cols))
   }
 
-  const saveToLocalStorage = (data: Compromisso[]) => {
-    localStorage.setItem('agenda_defesacivil', JSON.stringify(data))
+  // ── Cartão: abrir modal ──────────────────────────────────────────────────
+  const openNewCard = (colId: string) => {
+    setForm({ title: '', description: '', labels: [], image: '' })
+    setCardModal({ colId })
   }
 
-  useEffect(() => { loadCompromissos() }, [loadCompromissos])
+  const openEditCard = (colId: string, card: Card) => {
+    setForm({ title: card.title, description: card.description, labels: card.labels, image: card.image ?? '' })
+    setCardModal({ colId, card })
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-
-    const novoCompromisso: Compromisso = {
-      id: editingId || `agenda-${Date.now()}`,
-      titulo: formData.titulo,
-      descricao: formData.descricao || null,
-      data: formData.data,
-      hora_inicio: formData.hora_inicio,
-      hora_fim: formData.hora_fim || null,
-      created_at: new Date().toISOString()
-    }
-
-    if (useLocal) {
-      let updated: Compromisso[]
-      if (editingId) {
-        updated = compromissos.map(c => c.id === editingId ? novoCompromisso : c)
-      } else {
-        updated = [...compromissos, novoCompromisso]
+  // ── Cartão: salvar ───────────────────────────────────────────────────────
+  const saveCard = () => {
+    if (!form.title.trim() || !cardModal) return
+    const cols = columns.map(col => {
+      if (col.id !== cardModal.colId) return col
+      if (cardModal.card) {
+        return { ...col, cards: col.cards.map(c => c.id === cardModal.card!.id
+          ? { ...c, title: form.title, description: form.description, labels: form.labels, image: form.image }
+          : c) }
       }
-      updated.sort((a, b) => a.data.localeCompare(b.data) || a.hora_inicio.localeCompare(b.hora_inicio))
-      setCompromissos(updated)
-      saveToLocalStorage(updated)
-    } else {
-      try {
-        let response: Response
-        if (editingId) {
-          response = await fetch('/api/agenda', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: editingId, ...formData })
-          })
-        } else {
-          response = await fetch('/api/agenda', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData)
-          })
-        }
-        
-        if (!response.ok) throw new Error('Erro ao salvar')
-        
-        await loadCompromissos()
-      } catch (error) {
-        console.error('Erro ao salvar no banco, usando local:', error)
-        let updated = editingId
-          ? compromissos.map(c => c.id === editingId ? novoCompromisso : c)
-          : [...compromissos, novoCompromisso]
-        updated.sort((a, b) => a.data.localeCompare(b.data) || a.hora_inicio.localeCompare(b.hora_inicio))
-        setCompromissos(updated)
-        saveToLocalStorage(updated)
+      const newCard: Card = {
+        id: uid(), title: form.title, description: form.description,
+        labels: form.labels, image: form.image, createdAt: new Date().toISOString()
       }
-    }
-
-    setShowModal(false)
-    resetForm()
-    setSaving(false)
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este compromisso?')) return
-    
-    if (useLocal) {
-      const updated = compromissos.filter(c => c.id !== id)
-      setCompromissos(updated)
-      saveToLocalStorage(updated)
-    } else {
-      try {
-        const response = await fetch(`/api/agenda?id=${id}`, { method: 'DELETE' })
-        if (!response.ok) throw new Error('Erro ao excluir')
-        await loadCompromissos()
-      } catch (error) {
-        console.error('Erro ao excluir do banco, removendo local:', error)
-        const updated = compromissos.filter(c => c.id !== id)
-        setCompromissos(updated)
-        saveToLocalStorage(updated)
-      }
-    }
-  }
-
-  const handleEdit = (compromisso: Compromisso) => {
-    setFormData({
-      titulo: compromisso.titulo,
-      descricao: compromisso.descricao || '',
-      data: compromisso.data,
-      hora_inicio: compromisso.hora_inicio,
-      hora_fim: compromisso.hora_fim || '',
+      return { ...col, cards: [...col.cards, newCard] }
     })
-    setEditingId(compromisso.id)
-    setShowModal(true)
+    save(cols)
+    setCardModal(null)
   }
 
-  const resetForm = () => {
-    setFormData({
-      titulo: '',
-      descricao: '',
-      data: format(selectedDate, 'yyyy-MM-dd'),
-      hora_inicio: '09:00',
-      hora_fim: '',
-    })
-    setEditingId(null)
+  // ── Cartão: deletar ──────────────────────────────────────────────────────
+  const deleteCard = (colId: string, cardId: string) => {
+    save(columns.map(col => col.id === colId
+      ? { ...col, cards: col.cards.filter(c => c.id !== cardId) }
+      : col))
   }
 
-  const openNewModal = () => {
-    resetForm()
-    setFormData(prev => ({ ...prev, data: format(selectedDate, 'yyyy-MM-dd') }))
-    setShowModal(true)
+  // ── Coluna: salvar ───────────────────────────────────────────────────────
+  const [colForm, setColForm] = useState({ title: '', color: COL_COLORS[0] })
+
+  const openNewCol = () => { setColForm({ title: '', color: COL_COLORS[0] }); setColModal({}) }
+  const openEditCol = (col: Column) => { setColForm({ title: col.title, color: col.color }); setColModal({ col }) }
+
+  const saveCol = () => {
+    if (!colForm.title.trim()) return
+    if (colModal?.col) {
+      save(columns.map(c => c.id === colModal.col!.id ? { ...c, title: colForm.title, color: colForm.color } : c))
+    } else {
+      save([...columns, { id: uid(), title: colForm.title, color: colForm.color, cards: [] }])
+    }
+    setColModal(null)
   }
 
-  const daysInMonth = eachDayOfInterval({
-    start: startOfMonth(currentMonth),
-    end: endOfMonth(currentMonth),
-  })
+  const deleteCol = (colId: string) => {
+    if (!confirm('Deletar esta coluna e todos os seus cartões?')) return
+    save(columns.filter(c => c.id !== colId))
+    setColMenuOpen(null)
+  }
 
-  const compromissosDodia = compromissos.filter(c => 
-    isSameDay(new Date(c.data + 'T00:00:00'), selectedDate)
-  )
+  // ── Imagem ───────────────────────────────────────────────────────────────
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setForm(f => ({ ...f, image: ev.target?.result as string }))
+    reader.readAsDataURL(file)
+  }
 
-  const hasCompromisso = (date: Date) => 
-    compromissos.some(c => isSameDay(new Date(c.data + 'T00:00:00'), date))
+  const toggleLabel = (id: string) =>
+    setForm(f => ({ ...f, labels: f.labels.includes(id) ? f.labels.filter(l => l !== id) : [...f.labels, id] }))
+
+  // ── Drag & Drop ──────────────────────────────────────────────────────────
+  const onDragStart = (cardId: string, fromCol: string) => setDragging({ cardId, fromCol })
+  const onDragEnd   = () => { setDragging(null); setDragOver(null) }
+
+  const onDrop = (toColId: string) => {
+    if (!dragging || dragging.fromCol === toColId) { setDragOver(null); return }
+    const fromCol = columns.find(c => c.id === dragging.fromCol)
+    const card    = fromCol?.cards.find(c => c.id === dragging.cardId)
+    if (!card) return
+    save(columns.map(col => {
+      if (col.id === dragging.fromCol) return { ...col, cards: col.cards.filter(c => c.id !== dragging.cardId) }
+      if (col.id === toColId)          return { ...col, cards: [...col.cards, card] }
+      return col
+    }))
+    setDragOver(null)
+  }
+
+  const labelMap = Object.fromEntries(DEFAULT_LABELS.map(l => [l.id, l]))
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-center justify-between mb-5 flex-shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-[#1e3a5f]">Agenda Institucional</h1>
-          <p className="text-xs text-slate-500">
-            {useLocal ? 'Salvamento Local Ativo' : 'Sincronizado com Nuvem'}
-          </p>
+          <h1 className="text-xl font-bold text-[#1e3a5f]">Organização e Tarefas</h1>
+          <p className="text-xs text-slate-500">{columns.reduce((n, c) => n + c.cards.length, 0)} cartões · {columns.length} colunas</p>
         </div>
-        <button onClick={openNewModal}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1e3a5f] hover:bg-[#0f2744] text-white rounded-lg transition-all font-bold text-sm">
-          <Plus className="w-4 h-4" />
-          Novo Compromisso
+        <button onClick={openNewCol}
+          className="flex items-center gap-2 px-4 py-2 bg-[#1e3a5f] hover:bg-[#0f2744] text-white rounded-lg text-sm font-bold transition-colors">
+          <Plus className="w-4 h-4" /> Nova Coluna
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendário */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-5 border border-slate-200">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-[#1e3a5f] capitalize">
-              {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
-            </h2>
-            <div className="flex gap-1">
-              <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-[#1e3a5f]">
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-[#1e3a5f]">
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
-              <div key={i} className="text-center text-xs font-bold text-slate-400 py-2">{day}</div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-1">
-            {Array(startOfMonth(currentMonth).getDay()).fill(null).map((_, i) => (
-              <div key={`empty-${i}`} className="aspect-square" />
-            ))}
-            {daysInMonth.map(day => {
-              const active = isSameDay(day, selectedDate)
-              const today = isSameDay(day, new Date())
-              const hasEvents = hasCompromisso(day)
-              
-              return (
-                <button key={day.toISOString()} onClick={() => setSelectedDate(day)}
-                  className={`aspect-square rounded-lg text-sm font-medium transition-all relative flex flex-col items-center justify-center gap-0.5
-                    ${active ? 'bg-[#1e3a5f] text-white' : isSameMonth(day, currentMonth) ? 'hover:bg-slate-100 text-[#1e3a5f]' : 'text-slate-300'}
-                    ${today && !active ? 'ring-2 ring-[#e87722] ring-inset' : ''}`}>
-                  {format(day, 'd')}
-                  {hasEvents && <div className={`w-1 h-1 rounded-full ${active ? 'bg-[#e87722]' : 'bg-[#e87722]'}`} />}
+      {/* Board */}
+      <div className="flex gap-4 overflow-x-auto pb-4 flex-1 items-start">
+        {columns.map(col => (
+          <div key={col.id}
+            className={`flex-shrink-0 w-72 rounded-xl flex flex-col transition-all ${dragOver === col.id ? 'ring-2 ring-[#e87722]' : ''}`}
+            onDragOver={e => { e.preventDefault(); setDragOver(col.id) }}
+            onDrop={() => onDrop(col.id)}
+          >
+            {/* Cabeçalho da coluna */}
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-t-xl"
+              style={{ backgroundColor: col.color }}>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white text-sm">{col.title}</span>
+                <span className="bg-white/20 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{col.cards.length}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => openNewCard(col.id)}
+                  className="p-1 hover:bg-white/20 rounded text-white transition-colors">
+                  <Plus className="w-4 h-4" />
                 </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Lista do dia */}
-        <div className="bg-[#1e3a5f] rounded-xl p-5 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold capitalize">
-              {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
-            </h3>
-            <CalendarIcon className="w-5 h-5 text-[#e87722]" />
-          </div>
-
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-[#e87722]" />
-              <p className="text-xs text-slate-400">Carregando...</p>
-            </div>
-          ) : compromissosDodia.length === 0 ? (
-            <div className="text-center py-8 px-4 border border-dashed border-white/20 rounded-lg">
-              <p className="text-slate-400 text-sm">Nenhuma atividade neste dia.</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              {compromissosDodia.map(c => (
-                <div key={c.id} className="bg-white/10 border border-white/10 rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-sm truncate">{c.titulo}</h4>
-                      {c.descricao && <p className="text-xs text-slate-300 mt-1 line-clamp-2">{c.descricao}</p>}
-                      <div className="flex items-center gap-1 mt-2 text-[10px] text-[#e87722] font-bold">
-                        <Clock className="w-3 h-3" />
-                        {c.hora_inicio}{c.hora_fim && ` - ${c.hora_fim}`}
-                      </div>
+                <div className="relative">
+                  <button onClick={() => setColMenuOpen(colMenuOpen === col.id ? null : col.id)}
+                    className="p-1 hover:bg-white/20 rounded text-white transition-colors">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                  {colMenuOpen === col.id && (
+                    <div className="absolute right-0 top-8 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20 w-36">
+                      <button onClick={() => { openEditCol(col); setColMenuOpen(null) }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                        <Edit2 className="w-3.5 h-3.5" /> Renomear
+                      </button>
+                      <button onClick={() => deleteCol(col.id)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50">
+                        <Trash2 className="w-3.5 h-3.5" /> Deletar
+                      </button>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <button onClick={() => handleEdit(c)} className="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-all">
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Cartões */}
+            <div className="bg-slate-100 rounded-b-xl p-2 flex flex-col gap-2 min-h-[80px]">
+              {col.cards.map(card => (
+                <div key={card.id}
+                  draggable
+                  onDragStart={() => onDragStart(card.id, col.id)}
+                  onDragEnd={onDragEnd}
+                  className="bg-white rounded-lg shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group"
+                >
+                  {/* Imagem */}
+                  {card.image && (
+                    <img src={card.image} alt="" className="w-full h-32 object-cover rounded-t-lg" />
+                  )}
+
+                  <div className="p-3">
+                    {/* Etiquetas */}
+                    {card.labels.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {card.labels.map(lid => labelMap[lid] && (
+                          <span key={lid} className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: labelMap[lid].color, color: labelMap[lid].textColor }}>
+                            {labelMap[lid].name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <p className="text-sm font-semibold text-slate-800 leading-snug">{card.title}</p>
+
+                    {card.description && (
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{card.description}</p>
+                    )}
+
+                    {/* Ações */}
+                    <div className="flex items-center justify-end gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openEditCard(col.id, card)}
+                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-[#1e3a5f] transition-colors">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleDelete(c.id)} className="p-1.5 hover:bg-red-500/20 rounded text-slate-400 hover:text-red-400 transition-all">
+                      <button onClick={() => deleteCard(col.id, card.id)}
+                        className="p-1 hover:bg-red-50 rounded text-slate-400 hover:text-red-500 transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
+                      <GripVertical className="w-3.5 h-3.5 text-slate-300" />
                     </div>
                   </div>
                 </div>
               ))}
+
+              {/* Botão adicionar cartão */}
+              <button onClick={() => openNewCard(col.id)}
+                className="flex items-center gap-2 w-full px-2 py-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-lg text-xs font-medium transition-colors">
+                <Plus className="w-3.5 h-3.5" /> Adicionar cartão
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        ))}
+
+        {/* Botão nova coluna (inline) */}
+        <button onClick={openNewCol}
+          className="flex-shrink-0 w-72 h-14 flex items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-xl text-slate-400 hover:border-[#1e3a5f] hover:text-[#1e3a5f] transition-colors text-sm font-medium">
+          <Plus className="w-4 h-4" /> Nova Coluna
+        </button>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md overflow-hidden">
-            <div className="bg-[#1e3a5f] p-5 text-white flex items-center justify-between">
-              <div>
-                <h3 className="font-bold">{editingId ? 'Editar' : 'Novo'} Compromisso</h3>
-                <p className="text-xs text-white/60">Preencha os dados</p>
-              </div>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/10 rounded-lg transition-all">
+      {/* ── Modal Cartão ──────────────────────────────────────────────────── */}
+      {cardModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setCardModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
+            onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-[#1e3a5f] px-5 py-4 flex items-center justify-between">
+              <h3 className="font-bold text-white">{cardModal.card ? 'Editar Cartão' : 'Novo Cartão'}</h3>
+              <button onClick={() => setCardModal(null)} className="p-1 hover:bg-white/10 rounded-lg text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Título */}
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Título</label>
-                <input type="text" value={formData.titulo} onChange={e => setFormData({ ...formData, titulo: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:border-[#1e3a5f] focus:ring-2 focus:ring-blue-100 outline-none text-sm"
-                  placeholder="Ex: Vistoria na Zona Rural" required />
+                <label className="block text-xs font-bold text-slate-600 mb-1">Título *</label>
+                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-[#1e3a5f] focus:ring-2 focus:ring-blue-100"
+                  placeholder="Título do cartão" autoFocus />
               </div>
 
+              {/* Descrição */}
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">Descrição</label>
-                <textarea value={formData.descricao} onChange={e => setFormData({ ...formData, descricao: e.target.value })}
-                  rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:border-[#1e3a5f] focus:ring-2 focus:ring-blue-100 outline-none text-sm resize-none"
-                  placeholder="Detalhes..." />
+                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  rows={3} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-[#1e3a5f] focus:ring-2 focus:ring-blue-100 resize-none"
+                  placeholder="Descrição detalhada..." />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Data</label>
-                  <input type="date" value={formData.data} onChange={e => setFormData({ ...formData, data: e.target.value })}
-                    className="w-full px-2 py-2.5 border border-slate-200 rounded-lg focus:border-[#1e3a5f] focus:ring-2 focus:ring-blue-100 outline-none text-sm" required />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Início</label>
-                  <input type="time" value={formData.hora_inicio} onChange={e => setFormData({ ...formData, hora_inicio: e.target.value })}
-                    className="w-full px-2 py-2.5 border border-slate-200 rounded-lg focus:border-[#1e3a5f] focus:ring-2 focus:ring-blue-100 outline-none text-sm" required />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Fim</label>
-                  <input type="time" value={formData.hora_fim} onChange={e => setFormData({ ...formData, hora_fim: e.target.value })}
-                    className="w-full px-2 py-2.5 border border-slate-200 rounded-lg focus:border-[#1e3a5f] focus:ring-2 focus:ring-blue-100 outline-none text-sm" />
+              {/* Etiquetas */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-2 flex items-center gap-1">
+                  <Tag className="w-3 h-3" /> Etiquetas
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {DEFAULT_LABELS.map(label => {
+                    const selected = form.labels.includes(label.id)
+                    return (
+                      <button key={label.id} onClick={() => toggleLabel(label.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all"
+                        style={{
+                          backgroundColor: selected ? label.color : 'transparent',
+                          color: selected ? label.textColor : label.color,
+                          borderColor: label.color,
+                        }}>
+                        {selected && <Check className="w-3 h-3" />}
+                        {label.name}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 border border-slate-200 text-slate-500 font-bold rounded-lg hover:bg-slate-50 transition-all text-sm">
+              {/* Imagem */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-2 flex items-center gap-1">
+                  <ImageIcon className="w-3 h-3" /> Imagem (opcional)
+                </label>
+                {form.image ? (
+                  <div className="relative">
+                    <img src={form.image} alt="" className="w-full h-40 object-cover rounded-lg" />
+                    <button onClick={() => setForm(f => ({ ...f, image: '' }))}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => imgRef.current?.click()}
+                    className="w-full h-24 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center gap-1 text-slate-400 hover:border-[#1e3a5f] hover:text-[#1e3a5f] transition-colors">
+                    <ImageIcon className="w-6 h-6" />
+                    <span className="text-xs">Clique para adicionar imagem</span>
+                  </button>
+                )}
+                <input ref={imgRef} type="file" accept="image/*" className="hidden" onChange={handleImage} />
+              </div>
+
+              {/* Botões */}
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setCardModal(null)}
+                  className="flex-1 py-2.5 border border-slate-200 text-slate-500 font-bold rounded-lg hover:bg-slate-50 text-sm transition-colors">
                   Cancelar
                 </button>
-                <button type="submit" disabled={saving}
-                  className="flex-1 py-2.5 bg-[#1e3a5f] text-white font-bold rounded-lg hover:bg-[#0f2744] transition-all text-sm flex items-center justify-center gap-2">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingId ? 'Salvar' : 'Criar')}
+                <button onClick={saveCard} disabled={!form.title.trim()}
+                  className="flex-1 py-2.5 bg-[#1e3a5f] text-white font-bold rounded-lg hover:bg-[#0f2744] text-sm transition-colors disabled:opacity-40">
+                  {cardModal.card ? 'Salvar' : 'Criar Cartão'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* ── Modal Coluna ──────────────────────────────────────────────────── */}
+      {colModal !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setColModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden"
+            onClick={e => e.stopPropagation()}>
+            <div className="bg-[#1e3a5f] px-5 py-4 flex items-center justify-between">
+              <h3 className="font-bold text-white">{colModal.col ? 'Editar Coluna' : 'Nova Coluna'}</h3>
+              <button onClick={() => setColModal(null)} className="p-1 hover:bg-white/10 rounded-lg text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Nome da Coluna *</label>
+                <input value={colForm.title} onChange={e => setColForm(f => ({ ...f, title: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-[#1e3a5f] focus:ring-2 focus:ring-blue-100"
+                  placeholder="Ex: Em Revisão" autoFocus />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Cor</label>
+                <div className="flex gap-2 flex-wrap">
+                  {COL_COLORS.map(c => (
+                    <button key={c} onClick={() => setColForm(f => ({ ...f, color: c }))}
+                      className="w-8 h-8 rounded-full border-4 transition-all"
+                      style={{ backgroundColor: c, borderColor: colForm.color === c ? '#e87722' : 'transparent' }} />
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setColModal(null)}
+                  className="flex-1 py-2.5 border border-slate-200 text-slate-500 font-bold rounded-lg hover:bg-slate-50 text-sm">
+                  Cancelar
+                </button>
+                <button onClick={saveCol} disabled={!colForm.title.trim()}
+                  className="flex-1 py-2.5 text-white font-bold rounded-lg text-sm transition-colors disabled:opacity-40"
+                  style={{ backgroundColor: colForm.color }}>
+                  {colModal.col ? 'Salvar' : 'Criar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fecha menu de coluna ao clicar fora */}
+      {colMenuOpen && (
+        <div className="fixed inset-0 z-10" onClick={() => setColMenuOpen(null)} />
       )}
     </div>
   )

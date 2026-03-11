@@ -70,7 +70,7 @@ export default function DashboardPage() {
   const cards = [
     { title: 'Conversor NetCDF',   description: 'Converta arquivos .nc para CSV',  icon: FileSpreadsheet, href: '/dashboard/conversor' },
     { title: 'Previsão do Tempo',  description: 'Clima de Araruna/PB',              icon: CloudSun,        href: '/dashboard/previsao-tempo' },
-    { title: 'Agenda',             description: 'Gerencie seus compromissos',       icon: Calendar,        href: '/dashboard/agenda' },
+    { title: 'Organização e Tarefas', description: 'Kanban de tarefas e atividades', icon: Calendar,        href: '/dashboard/agenda' },
     { title: 'Memorandos',         description: 'Controle de memorandos',           icon: FileText,        href: '/dashboard/memorandos' },
     { title: 'Sugestões',          description: 'Envie suas ideias',                icon: Lightbulb,       href: '/dashboard/sugestoes' },
   ]

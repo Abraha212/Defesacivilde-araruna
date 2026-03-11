@@ -37,7 +37,7 @@ const menuItems = [
   { name: 'Painel',           href: '/dashboard',                  icon: LayoutDashboard },
   { name: 'Conversor NetCDF', href: '/dashboard/conversor',        icon: FileSpreadsheet },
   { name: 'Previsão do Tempo',href: '/dashboard/previsao-tempo',   icon: CloudSun },
-  { name: 'Agenda',           href: '/dashboard/agenda',           icon: Calendar },
+  { name: 'Organização e Tarefas', href: '/dashboard/agenda', icon: Calendar },
   { name: 'Memorandos',       href: '/dashboard/memorandos',       icon: FileText },
   { name: 'Sugestões',        href: '/dashboard/sugestoes',        icon: Lightbulb },
 ]
