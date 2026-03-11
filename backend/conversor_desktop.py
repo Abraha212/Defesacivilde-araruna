@@ -2,7 +2,7 @@
 ╔══════════════════════════════════════════════════════════════════╗
 ║   CONVERSOR NETCDF  v3.0                                         ║
 ║   Prefeitura Municipal de Araruna / PB                           ║
-║   Desenvolvido por Abraham Câmara                                ║
+║   By: Offnen Soluções e Desenvolvimento                          ║
 ║                                                                  ║
 ║   Formatos de saída: CSV  |  Excel (XLSX)  |  XML                ║
 ║   Suporta arquivos de 3 GB, 4 GB ou mais                         ║
@@ -406,7 +406,7 @@ class ConversorApp:
         footer = tk.Frame(self.left, bg=C['border'], height=30)
         footer.pack(fill='x', side='bottom')
         footer.pack_propagate(False)
-        tk.Label(footer, text='Desenvolvido por Abraham Câmara  •  Prefeitura de Araruna/PB',
+        tk.Label(footer, text='By: Offnen Soluções e Desenvolvimento  •  Prefeitura de Araruna/PB',
                  font=('Segoe UI', 8), fg=C['txt2'], bg=C['border']
                  ).place(relx=0.5, rely=0.5, anchor='center')
 
